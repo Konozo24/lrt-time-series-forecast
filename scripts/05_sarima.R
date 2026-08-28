@@ -51,7 +51,7 @@ for (i in seq_len(nrow(grid))) {
 results <- results[order(results$AICc), ]
 cat("\n--- SARIMA candidate grid (top 8 by AICc) ---\n")
 print(head(results, 8), row.names = FALSE)
-write.csv(results, "output/sarima_grid.csv", row.names = FALSE)
+write.csv(results, tbl("sarima_grid.csv"), row.names = FALSE)
 
 b <- results[1, ]
 label <- sprintf("SARIMA(%d,%d,%d)(%d,%d,%d)[12]", b$p, b$d, b$q, b$P, b$D, b$Q)
@@ -63,15 +63,19 @@ fit_sarima <- Arima(train, order = c(b$p, b$d, b$q),
 print(summary(fit_sarima))
 
 fc_sarima <- forecast(fit_sarima, h = H)
-print(autoplot(fc_sarima) + autolayer(test, series = "Actual") +
-        ggtitle(paste(label, "forecast")))
+p_fc <- autoplot(fc_sarima) + autolayer(test, series = "Actual") +
+  ggtitle(paste(label, "forecast"))
+print(p_fc)
+ggsave(fig("sarima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_sarima, test))
 
 # ---- Step 4: residual diagnostics -------------------------------------
 cat("\n--- Residual diagnostics ---\n")
+png(fig("sarima_residuals.png"), width = 900, height = 700, res = 130)
 checkresiduals(fit_sarima)
+dev.off()
 print(Box.test(residuals(fit_sarima), lag = LAG_MAX, type = "Ljung-Box"))
 cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_sarima)), "/", LAG_MAX, "\n")
 
@@ -82,6 +86,6 @@ cat("Train/test MAPE gap:", round(g$mape_gap * 100, 1),
 # ---- Step 5: save in the shared summary shape -------------------------
 summ <- model_summary(label, fit_sarima, fc_sarima, test)
 print(summ)
-write.csv(summ, "output/summary_sarima.csv", row.names = FALSE)
-saveRDS(fit_sarima, "output/fit_sarima.rds")
-saveRDS(fc_sarima,  "output/fc_sarima.rds")
+write.csv(summ, tbl("summary_sarima.csv"), row.names = FALSE)
+saveRDS(fit_sarima, mdl("fit_sarima.rds"))
+saveRDS(fc_sarima,  mdl("fc_sarima.rds"))

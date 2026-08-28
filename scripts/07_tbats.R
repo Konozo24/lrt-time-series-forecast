@@ -53,7 +53,7 @@ for (cfg in configs) {
 results <- results[order(results$AIC), ]
 cat("\n--- TBATS candidate configurations ---\n")
 print(results, row.names = FALSE)
-write.csv(results, "output/tbats_grid.csv", row.names = FALSE)
+write.csv(results, tbl("tbats_grid.csv"), row.names = FALSE)
 
 # Selection is by AIC (results are already sorted by it). Holdout MAPE is
 # printed alongside only as a cross-check, and is NOT the selection
@@ -69,15 +69,19 @@ fit_tbats <- fits[[best_label]]
 print(fit_tbats)
 
 fc_tbats <- forecast(fit_tbats, h = H)
-print(autoplot(fc_tbats) + autolayer(test, series = "Actual") +
-        ggtitle(paste(best_label, "forecast")))
+p_fc <- autoplot(fc_tbats) + autolayer(test, series = "Actual") +
+  ggtitle(paste(best_label, "forecast"))
+print(p_fc)
+ggsave(fig("tbats_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_tbats, test))
 
 # ---- Step 3: residual diagnostics -------------------------------------
 cat("\n--- Residual diagnostics ---\n")
+png(fig("tbats_residuals.png"), width = 900, height = 700, res = 130)
 checkresiduals(fit_tbats)
+dev.off()
 print(Box.test(residuals(fit_tbats), lag = LAG_MAX, type = "Ljung-Box"))
 cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_tbats)), "/", LAG_MAX, "\n")
 
@@ -88,6 +92,6 @@ cat("Train/test MAPE gap:", round(g$mape_gap * 100, 1),
 # ---- Step 4: save in the shared summary shape -------------------------
 summ <- model_summary("TBATS", fit_tbats, fc_tbats, test)
 print(summ)
-write.csv(summ, "output/summary_tbats.csv", row.names = FALSE)
-saveRDS(fit_tbats, "output/fit_tbats.rds")
-saveRDS(fc_tbats,  "output/fc_tbats.rds")
+write.csv(summ, tbl("summary_tbats.csv"), row.names = FALSE)
+saveRDS(fit_tbats, mdl("fit_tbats.rds"))
+saveRDS(fc_tbats,  mdl("fc_tbats.rds"))

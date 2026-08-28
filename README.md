@@ -21,7 +21,7 @@ Four models across two families, plus a benchmark:
 All orders and specifications are chosen by **explicit grid search ranked
 by AICc**, not by `auto.arima()` or the automatic `ets()` search — the
 candidate sets and selection criteria are written out in each script and
-saved to `output/*_grid.csv`.
+saved to `output/tables/*_grid.csv`.
 
 Differencing orders (`d`, `D`) are fixed first by unit-root tests
 (`ndiffs`/`nsdiffs`) and then held constant across each grid. AICc is only
@@ -76,6 +76,32 @@ scripts/09_rolling_cv.R       # robustness check (slow — refits everything per
 Scripts 04–07 are independent of each other and can be run in any order
 after 03. Script 08 refits everything itself, so it can also be run
 standalone after 02.
+
+## Output structure
+
+Everything written by scripts 03–09 lands in one of three subfolders
+under `output/`, so the folder doesn't fill up with 20+ mixed files:
+
+```
+output/
+├── figures/   forecast plots, residual diagnostics, EDA panels, CV plots (.png)
+├── tables/    grid searches, per-model summaries, comparisons (.csv)
+└── models/    fitted model + forecast objects (.rds)
+```
+
+Each script uses three small path helpers defined in `00_setup.R` —
+`fig("name.png")`, `tbl("name.csv")`, `mdl("name.rds")` — instead of
+writing `"output/..."` paths directly, so the destination folder is
+never spelled out by hand in each script.
+
+Key figures to pull into the report:
+- `figures/eda_summary.png`, `stl_decomposition.png`, `lag_plot.png` — EDA
+- `figures/<model>_forecast.png`, `<model>_residuals.png` — per-model
+- `figures/model_comparison_plot.png` — all 4 models + SNAIVE vs. actual
+- `figures/model_comparison_bar.png` — MAPE ranking bar chart
+- `figures/rolling_cv_stability.png` — accuracy-vs-stability scatter (the
+  ETS finding lives here: high mean, high variance)
+- `figures/rolling_cv_per_fold.png` — MAPE per model across folds
 
 ## Importing into Posit Cloud from GitHub
 

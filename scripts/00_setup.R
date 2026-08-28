@@ -12,17 +12,21 @@ library(ggplot2)
 library(lubridate)
 library(gridExtra)  # grid.arrange() - combine multiple ggplot panels into one figure
 
-# Ensure output/ and data/ exist - git does not track empty directories,
-# so a fresh clone from GitHub won't have output/ until something creates
-# it. Scripts that save plots/rds files into output/ will otherwise fail.
-dir.create("output", showWarnings = FALSE)
+# Ensure output/ (split into figures/tables/models) and data/ exist - git
+# does not track empty directories
 dir.create("data", showWarnings = FALSE)
+dir.create("output/figures", showWarnings = FALSE, recursive = TRUE)
+dir.create("output/tables",  showWarnings = FALSE, recursive = TRUE)
+dir.create("output/models",  showWarnings = FALSE, recursive = TRUE)
 
-# Topic: LRT Ampang line monthly ridership, SDG 11 (Sustainable Cities and
-# Communities), Target 11.2. Full period 2019-01 to 2026-06 retained per
-# tutor's instruction (do NOT truncate out the MCO period) - see
-# 02_mco_resolution.R for how the 2020-2021 disruption is handled instead
-# of removed.
+# Path helpers so every script writes to the right subfolder without
+# spelling out "output/figures/..." everywhere:
+#   fig("x.png")    -> "output/figures/x.png"   (plots)
+#   tbl("x.csv")    -> "output/tables/x.csv"    (grids, summaries, comparisons)
+#   mdl("x.rds")    -> "output/models/x.rds"    (fitted model / forecast objects)
+fig <- function(name) file.path("output/figures", name)
+tbl <- function(name) file.path("output/tables",  name)
+mdl <- function(name) file.path("output/models",  name)
 
 # ---------------------------------------------------------------------
 # SHARED SETTINGS - every model script uses these, so all four models are

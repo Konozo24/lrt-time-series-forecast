@@ -1,2 +1,0 @@
-"model","MAPE_test","RMSE_test","MAE_test","MASE_test","lb_pvalue","n_lags_out","mape_gap_pct","within_10pct"
-"SARIMA(0,1,2)(1,0,1)[12]",3.526,241432,209298,0.228,0.8344,0,47,FALSE

@@ -47,7 +47,7 @@ for (i in seq_len(nrow(grid))) {
 results <- results[order(results$AICc), ]
 cat("\n--- ARIMA candidate grid (top 8 by AICc) ---\n")
 print(head(results, 8), row.names = FALSE)
-write.csv(results, "output/arima_grid.csv", row.names = FALSE)
+write.csv(results, tbl("arima_grid.csv"), row.names = FALSE)
 
 best <- results[1, ]
 cat("\nSelected: ARIMA(", best$p, ",", best$d, ",", best$q, ")  AICc =",
@@ -59,15 +59,23 @@ fit_arima <- Arima(train, order = c(best$p, best$d, best$q),
 print(summary(fit_arima))
 
 fc_arima <- forecast(fit_arima, h = H)
-print(autoplot(fc_arima) + autolayer(test, series = "Actual") +
-        ggtitle(paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ") forecast")))
+p_fc <- autoplot(fc_arima) + autolayer(test, series = "Actual") +
+  ggtitle(paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ") forecast"))
+print(p_fc)
+ggsave(fig("arima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_arima, test))
 
 # ---- Step 4: residual diagnostics -------------------------------------
+# checkresiduals() prints a Ljung-Box result AND draws a plot - call it
+# once (so the console text isn't duplicated), saved to a file. Re-run
+# checkresiduals(fit_arima) alone afterwards if you want it in the
+# RStudio Plots pane too.
 cat("\n--- Residual diagnostics ---\n")
+png(fig("arima_residuals.png"), width = 900, height = 700, res = 130)
 checkresiduals(fit_arima)
+dev.off()
 print(Box.test(residuals(fit_arima), lag = LAG_MAX, type = "Ljung-Box"))
 cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_arima)), "/", LAG_MAX, "\n")
 
@@ -79,6 +87,6 @@ cat("Train/test MAPE gap:", round(g$mape_gap * 100, 1),
 summ <- model_summary(paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ")"),
                       fit_arima, fc_arima, test)
 print(summ)
-write.csv(summ, "output/summary_arima.csv", row.names = FALSE)
-saveRDS(fit_arima, "output/fit_arima.rds")
-saveRDS(fc_arima,  "output/fc_arima.rds")
+write.csv(summ, tbl("summary_arima.csv"), row.names = FALSE)
+saveRDS(fit_arima, mdl("fit_arima.rds"))
+saveRDS(fc_arima,  mdl("fc_arima.rds"))

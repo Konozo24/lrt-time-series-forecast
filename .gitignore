@@ -2,4 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-output/*.png
+
+# Keep the folder structure in git (via .gitkeep) but not the regenerated
+# contents - these are all reproducible by re-running scripts 00-09.
+output/figures/*.png
+output/tables/*.csv
+output/models/*.rds

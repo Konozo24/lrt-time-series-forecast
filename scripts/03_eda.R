@@ -31,14 +31,14 @@ grid.arrange(p1, p2, p3, p4, ncol = 2,
 
 # Save the combined figure directly (useful for pasting into the report)
 combined <- arrangeGrob(p1, p2, p3, p4, ncol = 2, top = "LRT Ampang - EDA Summary")
-ggsave("output/eda_summary.png", combined, width = 10, height = 7, dpi = 150)
+ggsave(fig("eda_summary.png"), combined, width = 10, height = 7, dpi = 150)
 
 # STL decomposition kept as its own figure (it's already a stacked 4-panel
 # plot itself - trend/season/remainder/data - combining it into the grid
 # above would be too cramped to read)
 decomp <- stl(ampang_ts, s.window = "periodic", robust = TRUE)
 print(autoplot(decomp) + ggtitle("STL Decomposition"))
-ggsave("output/stl_decomposition.png", width = 8, height = 6, dpi = 150)
+ggsave(fig("stl_decomposition.png"), width = 8, height = 6, dpi = 150)
 
 # Lag plot (Hyndman-style): scatterplots of the series against itself at
 # lags 1-12. A strong positive linear pattern specifically at lag 12
@@ -47,7 +47,7 @@ ggsave("output/stl_decomposition.png", width = 8, height = 6, dpi = 150)
 # shape, not just a bar height. Kept as its own figure (also already a
 # multi-panel grid on its own, same reasoning as STL above).
 print(gglagplot(ampang_ts, lags = 12) + ggtitle("Lag Plot (lags 1-12)"))
-ggsave("output/lag_plot.png", width = 8, height = 8, dpi = 150)
+ggsave(fig("lag_plot.png"), width = 8, height = 8, dpi = 150)
 
 # Seasonal strength (Hyndman's measure)
 seasonal_strength <- max(0, 1 - var(decomp$time.series[, "remainder"]) /

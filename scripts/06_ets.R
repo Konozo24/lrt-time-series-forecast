@@ -60,7 +60,7 @@ for (cand in candidates) {
 results <- results[order(results$AICc), ]
 cat("\n--- ETS candidate specifications (ranked by AICc) ---\n")
 print(results, row.names = FALSE)
-write.csv(results, "output/ets_grid.csv", row.names = FALSE)
+write.csv(results, tbl("ets_grid.csv"), row.names = FALSE)
 
 best_label <- results$spec[1]
 cat("\nSelected:", best_label, " AICc =", round(results$AICc[1], 2), "\n")
@@ -70,15 +70,19 @@ fit_ets <- fits[[best_label]]
 print(summary(fit_ets))
 
 fc_ets <- forecast(fit_ets, h = H)
-print(autoplot(fc_ets) + autolayer(test, series = "Actual") +
-        ggtitle(paste(best_label, "forecast")))
+p_fc <- autoplot(fc_ets) + autolayer(test, series = "Actual") +
+  ggtitle(paste(best_label, "forecast"))
+print(p_fc)
+ggsave(fig("ets_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_ets, test))
 
 # ---- Step 3: residual diagnostics -------------------------------------
 cat("\n--- Residual diagnostics ---\n")
+png(fig("ets_residuals.png"), width = 900, height = 700, res = 130)
 checkresiduals(fit_ets)
+dev.off()
 print(Box.test(residuals(fit_ets), lag = LAG_MAX, type = "Ljung-Box"))
 cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_ets)), "/", LAG_MAX, "\n")
 
@@ -89,6 +93,6 @@ cat("Train/test MAPE gap:", round(g$mape_gap * 100, 1),
 # ---- Step 4: save in the shared summary shape -------------------------
 summ <- model_summary(best_label, fit_ets, fc_ets, test)
 print(summ)
-write.csv(summ, "output/summary_ets.csv", row.names = FALSE)
-saveRDS(fit_ets, "output/fit_ets.rds")
-saveRDS(fc_ets,  "output/fc_ets.rds")
+write.csv(summ, tbl("summary_ets.csv"), row.names = FALSE)
+saveRDS(fit_ets, mdl("fit_ets.rds"))
+saveRDS(fc_ets,  mdl("fc_ets.rds"))

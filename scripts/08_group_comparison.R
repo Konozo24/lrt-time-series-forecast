@@ -81,7 +81,10 @@ for (s in ets_specs) {
 ets_res <- ets_res[order(ets_res$AICc), ]
 fits[["ETS"]] <- ets_fits[[ets_res$key[1]]]
 
-fits[["TBATS"]] <- tbats(train, use.box.cox = TRUE, use.trend = TRUE,
+# Config matches the one selected in 07_tbats.R by AIC (Box-Cox off,
+# damped trend on) - see output/tables/tbats_grid.csv. Do not change this
+# to TRUE without also updating 07_tbats.R and 09_rolling_cv.R to match.
+fits[["TBATS"]] <- tbats(train, use.box.cox = FALSE, use.trend = TRUE,
                          use.damped.trend = TRUE)
 
 # ---- Build the comparison table ---------------------------------------
@@ -117,7 +120,7 @@ rows$skill_vs_snaive <- round(1 - rows$MAPE_test / base_mape, 3)
 cat("\n=== SKILL VS SNAIVE BASELINE ===\n")
 print(rows[, c("model", "MAPE_test", "skill_vs_snaive")], row.names = FALSE)
 
-write.csv(rows, "output/model_comparison.csv", row.names = FALSE)
+write.csv(rows, tbl("model_comparison.csv"), row.names = FALSE)
 
 # ---- Within-family comparison ----------------------------------------
 cat("\n=== WITHIN-FAMILY COMPARISON ===\n")
@@ -143,4 +146,17 @@ p <- autoplot(window(y, start = c(2022, 1))) +
   ggtitle("All models vs. actual (12-month holdout)") +
   ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model"))
 print(p)
-ggsave("output/model_comparison_plot.png", p, width = 10, height = 6, dpi = 150)
+ggsave(fig("model_comparison_plot.png"), p, width = 10, height = 6, dpi = 150)
+
+# ---- Bar chart: MAPE by model, benchmark called out ------------------
+p_bar <- ggplot(rows, aes(x = reorder(model, MAPE_test), y = MAPE_test,
+                          fill = model == "SNAIVE")) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = paste0(MAPE_test, "%")), hjust = -0.15, size = 3.5) +
+  coord_flip() +
+  scale_fill_manual(values = c("TRUE" = "grey60", "FALSE" = "steelblue")) +
+  labs(title = "Holdout MAPE by model (SNAIVE benchmark in grey)",
+       x = NULL, y = "MAPE (%)") +
+  theme_minimal()
+print(p_bar)
+ggsave(fig("model_comparison_bar.png"), p_bar, width = 8, height = 5, dpi = 150)

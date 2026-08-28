@@ -103,5 +103,32 @@ print(summary_cv, row.names = FALSE)
 cat("\nsd_MAPE is the stability measure: a model with a low mean but high sd\n",
     "performs well on average while being unreliable fold to fold.\n")
 
-write.csv(cv, "output/rolling_cv_folds.csv", row.names = FALSE)
-write.csv(summary_cv, "output/rolling_cv_summary.csv", row.names = FALSE)
+write.csv(cv, tbl("rolling_cv_folds.csv"), row.names = FALSE)
+write.csv(summary_cv, tbl("rolling_cv_summary.csv"), row.names = FALSE)
+
+# ---- Stability plot: mean MAPE vs. sd MAPE -----------------------------
+# The point of rolling CV is this trade-off, not just the mean ranking:
+# a model can look good on average (low x) but be unreliable fold-to-fold
+# (high y). The best model is bottom-left; SNAIVE is expected top-right.
+p_stab <- ggplot(summary_cv, aes(x = mean_MAPE, y = sd_MAPE, label = model)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_text(vjust = -1, size = 4) +
+  labs(title = "Rolling-CV: accuracy vs. stability (bottom-left is best)",
+       x = "Mean MAPE across folds (%)", y = "SD of MAPE across folds (stability)") +
+  theme_minimal()
+print(p_stab)
+ggsave(fig("rolling_cv_stability.png"), p_stab, width = 7, height = 5, dpi = 150)
+
+# ---- Per-fold line plot: does any model's rank flip across folds? -----
+cv_long <- data.frame(
+  train_size = rep(cv$train_size, times = 5),
+  model      = rep(c("SNAIVE", "ARIMA", "SARIMA", "ETS", "TBATS"), each = nrow(cv)),
+  MAPE       = c(cv$SNAIVE, cv$ARIMA, cv$SARIMA, cv$ETS, cv$TBATS)
+)
+p_folds <- ggplot(cv_long, aes(x = train_size, y = MAPE, color = model)) +
+  geom_line(linewidth = 1) + geom_point(size = 2) +
+  labs(title = "MAPE per rolling-CV fold, by model",
+       x = "Training window size (months)", y = "MAPE (%)") +
+  theme_minimal()
+print(p_folds)
+ggsave(fig("rolling_cv_per_fold.png"), p_folds, width = 8, height = 5, dpi = 150)
