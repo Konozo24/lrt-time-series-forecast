@@ -12,6 +12,12 @@ library(ggplot2)
 library(lubridate)
 library(gridExtra)  # grid.arrange() - combine multiple ggplot panels into one figure
 
+# Ensure output/ and data/ exist - git does not track empty directories,
+# so a fresh clone from GitHub won't have output/ until something creates
+# it. Scripts that save plots/rds files into output/ will otherwise fail.
+dir.create("output", showWarnings = FALSE)
+dir.create("data", showWarnings = FALSE)
+
 # Topic: LRT Ampang line monthly ridership, SDG 11 (Sustainable Cities and
 # Communities), Target 11.2. Full period 2019-01 to 2026-06 retained per
 # tutor's instruction (do NOT truncate out the MCO period) - see
