@@ -73,8 +73,8 @@ print(accuracy(fc_sarima, test))
 
 # ---- Step 4: residual diagnostics -------------------------------------
 cat("\n--- Residual diagnostics ---\n")
-png(fig("sarima_residuals.png"), width = 900, height = 700, res = 130)
 checkresiduals(fit_sarima)
+dev.copy(png, filename = fig("sarima_residuals.png"), width = 900, height = 700, res = 130)
 dev.off()
 print(Box.test(residuals(fit_sarima), lag = LAG_MAX, type = "Ljung-Box"))
 cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_sarima)), "/", LAG_MAX, "\n")

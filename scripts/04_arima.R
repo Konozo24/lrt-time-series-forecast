@@ -68,13 +68,13 @@ cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_arima, test))
 
 # ---- Step 4: residual diagnostics -------------------------------------
-# checkresiduals() prints a Ljung-Box result AND draws a plot - call it
-# once (so the console text isn't duplicated), saved to a file. Re-run
-# checkresiduals(fit_arima) alone afterwards if you want it in the
-# RStudio Plots pane too.
+# checkresiduals() draws to whatever device is currently active, so this
+# shows in the RStudio Plots pane as normal, then dev.copy() saves a copy
+# of that same rendered plot to file - no need to call checkresiduals()
+# twice (which would duplicate its console Ljung-Box text output).
 cat("\n--- Residual diagnostics ---\n")
-png(fig("arima_residuals.png"), width = 900, height = 700, res = 130)
 checkresiduals(fit_arima)
+dev.copy(png, filename = fig("arima_residuals.png"), width = 900, height = 700, res = 130)
 dev.off()
 print(Box.test(residuals(fit_arima), lag = LAG_MAX, type = "Ljung-Box"))
 cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_arima)), "/", LAG_MAX, "\n")

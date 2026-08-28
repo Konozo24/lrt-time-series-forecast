@@ -80,8 +80,8 @@ print(accuracy(fc_ets, test))
 
 # ---- Step 3: residual diagnostics -------------------------------------
 cat("\n--- Residual diagnostics ---\n")
-png(fig("ets_residuals.png"), width = 900, height = 700, res = 130)
 checkresiduals(fit_ets)
+dev.copy(png, filename = fig("ets_residuals.png"), width = 900, height = 700, res = 130)
 dev.off()
 print(Box.test(residuals(fit_ets), lag = LAG_MAX, type = "Ljung-Box"))
 cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_ets)), "/", LAG_MAX, "\n")
