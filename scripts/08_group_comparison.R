@@ -1,0 +1,146 @@
+# 08_group_comparison.R - combines all four models plus the SNAIVE
+# baseline into one comparison on the same series, same split, same
+# metrics. Run 04-07 first (this script refits them rather than reloading,
+# so the comparison is self-contained and reproducible in one pass).
+#
+# SNAIVE is included as the benchmark, not as a fifth "real" model: it
+# has no estimated parameters (it simply repeats the value from the same
+# month one year earlier). It is the appropriate baseline here rather
+# than a plain naive or mean forecast, because the series has confirmed
+# seasonality (03_eda.R) - benchmarking against a method that ignores
+# seasonality would be an artificially weak comparison. Any model that
+# cannot beat SNAIVE is not earning the complexity it adds.
+#
+# Two comparisons are reported, and they answer different questions:
+#   1. Against the baseline - is the modelling effort worth anything?
+#   2. Within family (ARIMA vs SARIMA, ETS vs TBATS) - does the seasonal
+#      or extended specification earn its extra parameters?
+
+source("scripts/00_setup.R")
+
+y  <- load_series()
+sp <- split_series(y)
+train <- sp$train; test <- sp$test
+
+cat("Series:", length(y), "months | train:", length(train),
+    "| test:", length(test), "(h =", H, ")\n\n")
+
+# ---- Refit all four models + baseline ---------------------------------
+# Orders/specs below are the ones selected by the grid searches in 04-07.
+# They are hard-coded here so this script runs standalone; if a grid
+# search selects something different when re-run, update these to match.
+
+fits <- list()
+
+fits[["SNAIVE"]] <- snaive(train, h = H)
+
+d_ns <- ndiffs(train, test = "kpss")
+arima_grid <- expand.grid(p = 0:3, q = 0:3)
+arima_res <- data.frame()
+for (i in seq_len(nrow(arima_grid))) {
+  f <- tryCatch(Arima(train, order = c(arima_grid$p[i], d_ns, arima_grid$q[i]),
+                      include.drift = (d_ns > 0)), error = function(e) NULL)
+  if (!is.null(f)) arima_res <- rbind(arima_res,
+      data.frame(p = arima_grid$p[i], q = arima_grid$q[i], AICc = f$aicc))
+}
+arima_res <- arima_res[order(arima_res$AICc), ]
+fits[["ARIMA"]] <- Arima(train, order = c(arima_res$p[1], d_ns, arima_res$q[1]),
+                         include.drift = (d_ns > 0))
+
+D_s <- nsdiffs(train)
+d_s <- ndiffs(if (D_s > 0) diff(train, lag = 12) else train, test = "kpss")
+sar_grid <- expand.grid(p = 0:2, q = 0:2, P = 0:1, Q = 0:1)
+sar_res <- data.frame()
+for (i in seq_len(nrow(sar_grid))) {
+  f <- tryCatch(Arima(train, order = c(sar_grid$p[i], d_s, sar_grid$q[i]),
+                      seasonal = list(order = c(sar_grid$P[i], D_s, sar_grid$Q[i]),
+                                      period = 12)),
+                error = function(e) NULL)
+  if (!is.null(f)) sar_res <- rbind(sar_res, data.frame(
+      p = sar_grid$p[i], q = sar_grid$q[i],
+      P = sar_grid$P[i], Q = sar_grid$Q[i], AICc = f$aicc))
+}
+sar_res <- sar_res[order(sar_res$AICc), ]
+fits[["SARIMA"]] <- Arima(train,
+  order    = c(sar_res$p[1], d_s, sar_res$q[1]),
+  seasonal = list(order = c(sar_res$P[1], D_s, sar_res$Q[1]), period = 12))
+
+ets_specs <- list(c("ANN", NA), c("AAN", "FALSE"), c("AAN", "TRUE"),
+                  c("ANA", NA), c("AAA", "FALSE"), c("AAA", "TRUE"),
+                  c("MNM", NA), c("MAM", "FALSE"), c("MAM", "TRUE"))
+ets_res <- data.frame(); ets_fits <- list()
+for (s in ets_specs) {
+  dmp <- if (is.na(s[2])) NULL else as.logical(s[2])
+  f <- tryCatch(ets(train, model = s[1], damped = dmp), error = function(e) NULL)
+  if (!is.null(f)) {
+    key <- paste0(s[1], "_", ifelse(is.na(s[2]), "NA", s[2]))
+    ets_fits[[key]] <- f
+    ets_res <- rbind(ets_res, data.frame(key = key, AICc = f$aicc))
+  }
+}
+ets_res <- ets_res[order(ets_res$AICc), ]
+fits[["ETS"]] <- ets_fits[[ets_res$key[1]]]
+
+fits[["TBATS"]] <- tbats(train, use.box.cox = TRUE, use.trend = TRUE,
+                         use.damped.trend = TRUE)
+
+# ---- Build the comparison table ---------------------------------------
+rows <- data.frame()
+for (nm in names(fits)) {
+  fit <- fits[[nm]]
+  fc  <- if (nm == "SNAIVE") fit else forecast(fit, h = H)
+  a   <- accuracy(fc, test)
+  g   <- gap_check(a)
+  lb  <- Box.test(residuals(fit), lag = LAG_MAX, type = "Ljung-Box")
+  rows <- rbind(rows, data.frame(
+    model        = nm,
+    MAPE_test    = round(a["Test set", "MAPE"], 3),
+    RMSE_test    = round(a["Test set", "RMSE"], 0),
+    MAE_test     = round(a["Test set", "MAE"], 0),
+    MASE_test    = round(a["Test set", "MASE"], 3),
+    lb_pvalue    = round(lb$p.value, 4),
+    n_lags_out   = acf_out_of_bounds(residuals(fit)),
+    mape_gap_pct = round(g$mape_gap * 100, 1),
+    within_10pct = g$within_10pct))
+}
+rows <- rows[order(rows$MAPE_test), ]
+
+cat("\n=== MODEL COMPARISON (ranked by test MAPE) ===\n")
+print(rows, row.names = FALSE)
+
+# ---- Skill vs. the SNAIVE baseline ------------------------------------
+# Skill score = 1 - (model error / baseline error). Positive means the
+# model beats the benchmark; negative means it does not.
+base_mape <- rows$MAPE_test[rows$model == "SNAIVE"]
+rows$skill_vs_snaive <- round(1 - rows$MAPE_test / base_mape, 3)
+
+cat("\n=== SKILL VS SNAIVE BASELINE ===\n")
+print(rows[, c("model", "MAPE_test", "skill_vs_snaive")], row.names = FALSE)
+
+write.csv(rows, "output/model_comparison.csv", row.names = FALSE)
+
+# ---- Within-family comparison ----------------------------------------
+cat("\n=== WITHIN-FAMILY COMPARISON ===\n")
+cat("ARIMA family - does adding seasonal terms pay off?\n")
+cat("  ARIMA  AICc:", round(fits[["ARIMA"]]$aicc, 2),
+    " | SARIMA AICc:", round(fits[["SARIMA"]]$aicc, 2), "\n")
+cat("ETS family - does TBATS's trigonometric seasonality beat ETS's seasonal states?\n")
+cat("  ETS test MAPE:",   rows$MAPE_test[rows$model == "ETS"],
+    " | TBATS test MAPE:", rows$MAPE_test[rows$model == "TBATS"], "\n")
+
+# ---- Combined forecast plot ------------------------------------------
+fc_all <- lapply(names(fits), function(nm)
+  if (nm == "SNAIVE") fits[[nm]] else forecast(fits[[nm]], h = H))
+names(fc_all) <- names(fits)
+
+p <- autoplot(window(y, start = c(2022, 1))) +
+  autolayer(fc_all[["ARIMA"]]$mean,  series = "ARIMA") +
+  autolayer(fc_all[["SARIMA"]]$mean, series = "SARIMA") +
+  autolayer(fc_all[["ETS"]]$mean,    series = "ETS") +
+  autolayer(fc_all[["TBATS"]]$mean,  series = "TBATS") +
+  autolayer(fc_all[["SNAIVE"]]$mean, series = "SNAIVE") +
+  autolayer(test, series = "Actual", size = 1.1) +
+  ggtitle("All models vs. actual (12-month holdout)") +
+  ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model"))
+print(p)
+ggsave("output/model_comparison_plot.png", p, width = 10, height = 6, dpi = 150)

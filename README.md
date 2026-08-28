@@ -1,64 +1,115 @@
-# LRT Ampang Ridership Forecasting — TBATS (BMMS2094)
+# LRT Ampang Ridership Forecasting (BMMS2094)
 
-Individual contribution to BMMS2094 Statistics for Data Science group assignment.
+Time series forecasting of LRT Ampang line monthly ridership.
 SDG 11 (Sustainable Cities and Communities), Target 11.2.
 
-Model family: ETS (TBATS variant).
 Dataset: [Daily Public Transport Ridership](https://data.gov.my/data-catalogue/ridership_headline)
 (data.gov.my, Prasarana Malaysia + Ministry of Transport, CC BY 4.0).
 
+## Models compared
+
+Four models across two families, plus a benchmark:
+
+| Script | Model | Family |
+|---|---|---|
+| `04_arima.R` | ARIMA(p,d,q) | ARIMA |
+| `05_sarima.R` | SARIMA(p,d,q)(P,D,Q)[12] | ARIMA |
+| `06_ets.R` | ETS(Error,Trend,Seasonal) | Exponential smoothing |
+| `07_tbats.R` | TBATS | Exponential smoothing |
+| `08_group_comparison.R` | SNAIVE | Benchmark (no estimated parameters) |
+
+All orders and specifications are chosen by **explicit grid search ranked
+by AICc**, not by `auto.arima()` or the automatic `ets()` search — the
+candidate sets and selection criteria are written out in each script and
+saved to `output/*_grid.csv`.
+
+Differencing orders (`d`, `D`) are fixed first by unit-root tests
+(`ndiffs`/`nsdiffs`) and then held constant across each grid. AICc is only
+comparable between models fitted to the same effective series, so mixing
+different differencing orders into one ranking would be invalid.
+
 ## Full period retained — MCO handling
 
-Per tutor's instruction, **all periods are included** (2019-01 to 2026-06,
-91 months) — the series is NOT truncated to exclude the COVID-19 MCO
-disruption. Instead, the 2020-2021 collapse-and-recovery window is
-resolved via a domain-knowledge-based intervention adjustment (linear
-trend bridge + seasonal reconstruction over the known MCO window,
-March 2020 – December 2021) rather than deleted. See
-`scripts/02_mco_resolution.R` for the full method and reasoning, including
-why a simpler automatic-outlier-detection approach was tried first and
-rejected (it produced false positives on genuine pre/post-disruption
-months).
+All periods are included (2019-01 to 2026-07, 91 months); the series is
+**not** truncated to remove the COVID-19 MCO disruption. The 2020–2021
+collapse is resolved by **known-intervention imputation**: linear
+interpolation of the trend across the disrupted window (March 2020 –
+December 2021, defined from Malaysia's actual MCO timeline), plus a
+seasonal component estimated by STL from the undisrupted months.
+
+`02_mco_resolution.R` also documents an approach that was tried and
+rejected first — automatic outlier detection by STL residual
+thresholding — which produced false positives on genuinely normal months
+adjacent to the shock, because a single sharp discontinuity distorts the
+local trend estimate at its edges. Automatic detection suits scattered
+outliers, not a sustained multi-month regime shift.
+
+## Evaluation
+
+- **Holdout**: last 12 months (one full seasonal cycle, so every calendar
+  month appears exactly once in the test set).
+- **Metrics**: MAPE, RMSE, MAE, MASE on the holdout.
+- **Baseline**: SNAIVE — chosen over mean/naive/drift because the series
+  has confirmed seasonality, so a benchmark that ignores seasonality
+  would be an artificially weak comparison.
+- **Residual diagnostics**: Ljung-Box at lag 24 (two seasonal cycles),
+  plus a count of residual ACF lags exceeding ±1.96/√n.
+- **Overfitting check**: train-vs-test accuracy gap must stay within 10%.
+- **Robustness**: `09_rolling_cv.R` re-runs the comparison across 5
+  rolling origins, since a single holdout is one draw.
 
 ## Run order
 
 ```
-scripts/00_setup.R          # install/load packages
-scripts/01_data_prep.R      # aggregate daily -> monthly, full period
-scripts/02_mco_resolution.R # resolve (not remove) the MCO window
-scripts/03_eda.R            # decomposition, stationarity, ACF/PACF
-scripts/04_tbats_model.R    # fit TBATS, holdout accuracy, diagnostics
-scripts/05_rolling_cv.R     # 7-fold rolling-origin CV
+scripts/00_setup.R            # packages, shared settings and helpers
+scripts/01_data_prep.R        # daily -> monthly, full period
+scripts/02_mco_resolution.R   # resolve (not remove) the MCO window
+scripts/03_eda.R              # decomposition, stationarity, ACF/PACF, lag plot
+scripts/04_arima.R
+scripts/05_sarima.R
+scripts/06_ets.R
+scripts/07_tbats.R
+scripts/08_group_comparison.R # all four + SNAIVE, one table
+scripts/09_rolling_cv.R       # robustness check (slow — refits everything per fold)
 ```
+
+Scripts 04–07 are independent of each other and can be run in any order
+after 03. Script 08 refits everything itself, so it can also be run
+standalone after 02.
 
 ## Importing into Posit Cloud from GitHub
 
-1. Push this folder to a new GitHub repo:
+1. Push to GitHub:
    ```
    cd "C:\Users\Ming\Desktop\Projects\lrt-time-series"
    git init
    git add .
-   git commit -m "Initial TBATS project setup"
+   git commit -m "LRT Ampang forecasting: ARIMA/SARIMA/ETS/TBATS"
    git branch -M main
    git remote add origin https://github.com/<your-username>/lrt-time-series.git
    git push -u origin main
    ```
-2. In Posit Cloud: **New Project → New Project from Git Repository**, paste
-   the GitHub URL.
-3. Open `lrt-time-series.Rproj` if it doesn't open automatically.
-4. Run `scripts/00_setup.R` first each session (free tier — packages
-   aren't persisted between long idle periods on some plans).
-5. Run the remaining scripts in order (01 → 05).
+2. Posit Cloud → **New Project → New Project from Git Repository**, paste
+   the URL.
+3. Run `scripts/00_setup.R` first each session.
 
-## Reference numbers (from Python prototype — confirm R output lands close)
+Free tier is 1GB RAM. Do **not** install `prophet` — its Stan dependency
+compiles from source and times out.
 
-| Check | Expected result |
+## Reference numbers
+
+From a Python prototype on the same resolved series, same 12-month
+holdout. R numbers should land close; large divergence means something
+differs in the setup, not just optimiser noise.
+
+| Model | Holdout MAPE |
 |---|---|
-| Seasonal strength (STL) | ~0.48 |
-| Best TBATS holdout MAPE (full, resolved series) | ~4.97% |
-| Ljung-Box p-value (lag 6 / lag 12) | ~0.36 / ~0.38 (clean pass) |
-| Rolling-CV mean MAPE | to be confirmed in R (Python check on truncated series: 5.17%) |
+| ETS | ~2.6% |
+| TBATS | ~3.7% |
+| SNAIVE (baseline) | ~5.2% |
+| SARIMA | ~6.1% |
+| ARIMA (non-seasonal) | ~16.0% |
 
-Numbers won't be identical between Python's `tbats` package and R's
-`forecast::tbats()` (different optimizers) — small differences are
-expected, large ones (order-of-magnitude) are not.
+Note the expected finding: **SNAIVE beats both ARIMA-family models** on
+this holdout. That is a real result to report, not an error — it is
+exactly why a benchmark is included.
