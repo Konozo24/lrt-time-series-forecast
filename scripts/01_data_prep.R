@@ -3,8 +3,8 @@
 # (https://data.gov.my/data-catalogue/ridership_headline), Prasarana
 # Malaysia + Ministry of Transport, CC BY 4.0.
 #
-# IMPORTANT: full period retained (2019-01 to 2026-06), including the
-# COVID-19 MCO period, per tutor's instruction. The 2020-2021 disruption
+# full period retained (2019-01 to 2026-06), including the
+# COVID-19 MCO period. The 2020-2021 disruption
 # is resolved via a known-intervention adjustment in 02_mco_resolution.R,
 # not by truncating the series.
 

@@ -33,9 +33,7 @@ grid.arrange(p1, p2, p3, p4, ncol = 2,
 combined <- arrangeGrob(p1, p2, p3, p4, ncol = 2, top = "LRT Ampang - EDA Summary")
 ggsave("output/eda_summary.png", combined, width = 10, height = 7, dpi = 150)
 
-# STL decomposition kept as its own figure (it's already a stacked 4-panel
-# plot itself - trend/season/remainder/data - combining it into the grid
-# above would be too cramped to read)
+# STL decomposition kept as its own figure
 decomp <- stl(ampang_ts, s.window = "periodic", robust = TRUE)
 print(autoplot(decomp) + ggtitle("STL Decomposition"))
 ggsave("output/stl_decomposition.png", width = 8, height = 6, dpi = 150)
@@ -54,7 +52,7 @@ seasonal_strength <- max(0, 1 - var(decomp$time.series[, "remainder"]) /
                             var(decomp$time.series[, "seasonal"] + decomp$time.series[, "remainder"]))
 cat("Seasonal strength:", round(seasonal_strength, 3), "\n")
 
-# --- Stationarity tests ---
+# Stationarity tests
 cat("\n--- Level series ---\n")
 print(adf.test(ampang_ts))   # want p < 0.05 for stationary
 print(kpss.test(ampang_ts))  # want p > 0.05 for stationary
