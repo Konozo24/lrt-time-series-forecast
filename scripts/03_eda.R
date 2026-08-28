@@ -5,11 +5,11 @@ source("scripts/00_setup.R")
 ampang_ts <- readRDS("data/ampang_monthly_full_resolved.rds")
 
 # --- Visual EDA ---
-autoplot(ampang_ts) + ggtitle("LRT Ampang Monthly Ridership (2019-2026, MCO-resolved)")
-ggseasonplot(ampang_ts)
+print(autoplot(ampang_ts) + ggtitle("LRT Ampang Monthly Ridership (2019-2026, MCO-resolved)"))
+print(ggseasonplot(ampang_ts))
 
 decomp <- stl(ampang_ts, s.window = "periodic", robust = TRUE)
-autoplot(decomp)
+print(autoplot(decomp))
 
 # Seasonal strength (Hyndman's measure)
 seasonal_strength <- max(0, 1 - var(decomp$time.series[, "remainder"]) /
@@ -26,5 +26,5 @@ print(adf.test(diff(ampang_ts)))
 print(kpss.test(diff(ampang_ts)))
 
 # --- ACF / PACF ---
-ggAcf(diff(ampang_ts), lag.max = 24)
-ggPacf(diff(ampang_ts), lag.max = 24)
+print(ggAcf(diff(ampang_ts), lag.max = 24))
+print(ggPacf(diff(ampang_ts), lag.max = 24))

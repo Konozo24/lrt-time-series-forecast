@@ -80,7 +80,8 @@ saveRDS(ampang_ts_resolved, "data/ampang_monthly_full_resolved.rds")
 cat("\nSaved data/ampang_monthly_full_resolved.rds - length:", length(ampang_ts_resolved),
     "(all", length(ampang_ts), "months retained, MCO window resolved not removed)\n")
 
-# Quick visual check
-autoplot(cbind(Original = ampang_ts, Resolved = ampang_ts_resolved)) +
-  ggtitle("LRT Ampang: Original vs. MCO-Resolved Series") +
-  ylab("Monthly ridership")
+print(
+  autoplot(cbind(Original = ampang_ts, Resolved = ampang_ts_resolved)) +
+    ggtitle("LRT Ampang: Original vs. MCO-Resolved Series") +
+    ylab("Monthly ridership")
+)

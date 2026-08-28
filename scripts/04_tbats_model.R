@@ -26,7 +26,7 @@ fit_tbats <- tbats(train, use.box.cox = TRUE, use.trend = TRUE, use.damped.trend
 print(fit_tbats)
 
 fc_tbats <- forecast(fit_tbats, h = h)
-autoplot(fc_tbats) + autolayer(test, series = "Actual")
+print(autoplot(fc_tbats) + autolayer(test, series = "Actual"))
 
 cat("\n--- Holdout accuracy (last 6 months) ---\n")
 print(accuracy(fc_tbats, test))
