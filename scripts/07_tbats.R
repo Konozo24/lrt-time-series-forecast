@@ -55,13 +55,14 @@ cat("\n--- TBATS candidate configurations ---\n")
 print(results, row.names = FALSE)
 write.csv(results, "output/tbats_grid.csv", row.names = FALSE)
 
-# Selection note: AIC differences between these configurations are small,
-# so the damped/undamped choice is decided on out-of-sample accuracy
-# rather than in-sample fit alone - damping constrains how far the trend
-# is extrapolated over a 12-month horizon, which matters more for
-# forecasting than the marginal AIC difference suggests.
-best_label <- results$config[which.min(results$MAPE_test)]
-cat("\nSelected:", best_label, "\n")
+# Selection is by AIC (results are already sorted by it). Holdout MAPE is
+# printed alongside only as a cross-check, and is NOT the selection
+# criterion - choosing a configuration by test-set accuracy would leak the
+# test set into model selection. Both criteria happen to agree here, which
+# is the ideal case: the AIC-best configuration is also the most accurate
+# out of sample, so no trade-off has to be argued.
+best_label <- results$config[1]
+cat("\nSelected (by AIC):", best_label, "\n")
 
 # ---- Step 2: refit selected config, forecast, evaluate ----------------
 fit_tbats <- fits[[best_label]]

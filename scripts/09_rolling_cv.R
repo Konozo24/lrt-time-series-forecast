@@ -78,8 +78,8 @@ for (ts_size in origins) {
   rE <- rE[order(rE$AICc), ]
   m_ets <- mape_of(forecast(eF[[rE$key[1]]], h = h)$mean)
 
-  # TBATS
-  m_tb <- mape_of(forecast(tbats(tr, use.box.cox = TRUE, use.trend = TRUE,
+  # TBATS - config as selected in 07_tbats.R (Box-Cox off, damped trend on)
+  m_tb <- mape_of(forecast(tbats(tr, use.box.cox = FALSE, use.trend = TRUE,
                                  use.damped.trend = TRUE), h = h)$mean)
 
   cv <- rbind(cv, data.frame(train_size = ts_size, SNAIVE = m_sn, ARIMA = m_ar,
