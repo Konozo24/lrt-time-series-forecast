@@ -8,7 +8,7 @@ ampang_ts <- readRDS("data/ampang_monthly_full_resolved.rds")
 # Panel 1: raw series, Panel 2: seasonal plot, Panel 3: ACF, Panel 4: PACF
 # (all on the differenced series for ACF/PACF, since that's what informs
 # ARIMA/SARIMA order selection - kept here so the whole EDA picture is in
-# one place for the report, even though this script's own model is TBATS)
+# one place for the report, even though this script's own model is BATS)
 
 p1 <- autoplot(ampang_ts) +
   ggtitle("Monthly Ridership (2019-2026, MCO-resolved)") +

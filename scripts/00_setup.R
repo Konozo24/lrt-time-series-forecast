@@ -5,7 +5,7 @@ pkgs <- c("forecast", "tseries", "dplyr", "ggplot2", "lubridate", "gridExtra")
 new <- pkgs[!pkgs %in% installed.packages()[, "Package"]]
 if (length(new)) install.packages(new)
 
-library(forecast)   # tbats(), accuracy(), checkresiduals()
+library(forecast)   # bats(), accuracy(), checkresiduals()
 library(tseries)    # adf.test(), kpss.test()
 library(dplyr)
 library(ggplot2)

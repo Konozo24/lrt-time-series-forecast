@@ -10,7 +10,7 @@
 # Design: expanding training window, 12-month forecast horizon per fold
 # (one full seasonal cycle, matching the main holdout), 5 folds.
 #
-# RUNTIME WARNING: this refits every model at every origin, and TBATS is
+# RUNTIME WARNING: this refits every model at every origin, and BATS is
 # slow because it runs its own internal component search on each fit.
 # Expect several minutes on free Posit Cloud. Reduce the number of folds
 # (widen the `by` argument) if it becomes impractical.
@@ -78,12 +78,13 @@ for (ts_size in origins) {
   rE <- rE[order(rE$AICc), ]
   m_ets <- mape_of(forecast(eF[[rE$key[1]]], h = h)$mean)
 
-  # TBATS - config as selected in 07_tbats.R (Box-Cox off, damped trend on)
-  m_tb <- mape_of(forecast(tbats(tr, use.box.cox = FALSE, use.trend = TRUE,
+  # BATS - config carried over from the TBATS version; after the first
+  # 07_bats.R run, update these flags to match the top row of bats_grid.csv
+  m_tb <- mape_of(forecast(bats(tr, use.box.cox = FALSE, use.trend = TRUE,
                                  use.damped.trend = TRUE), h = h)$mean)
 
   cv <- rbind(cv, data.frame(train_size = ts_size, SNAIVE = m_sn, ARIMA = m_ar,
-                             SARIMA = m_sa, ETS = m_ets, TBATS = m_tb))
+                             SARIMA = m_sa, ETS = m_ets, BATS = m_tb))
   cat("origin", ts_size, "done\n")
 }
 
@@ -91,7 +92,7 @@ cat("\n=== Per-fold MAPE (%) ===\n")
 print(round(cv, 2), row.names = FALSE)
 
 summary_cv <- data.frame(
-  model    = c("SNAIVE", "ARIMA", "SARIMA", "ETS", "TBATS"),
+  model    = c("SNAIVE", "ARIMA", "SARIMA", "ETS", "BATS"),
   mean_MAPE = round(sapply(cv[, -1], mean), 2),
   sd_MAPE   = round(sapply(cv[, -1], sd), 2),
   min_MAPE  = round(sapply(cv[, -1], min), 2),
@@ -122,8 +123,8 @@ ggsave(fig("rolling_cv_stability.png"), p_stab, width = 7, height = 5, dpi = 150
 # ---- Per-fold line plot: does any model's rank flip across folds? -----
 cv_long <- data.frame(
   train_size = rep(cv$train_size, times = 5),
-  model      = rep(c("SNAIVE", "ARIMA", "SARIMA", "ETS", "TBATS"), each = nrow(cv)),
-  MAPE       = c(cv$SNAIVE, cv$ARIMA, cv$SARIMA, cv$ETS, cv$TBATS)
+  model      = rep(c("SNAIVE", "ARIMA", "SARIMA", "ETS", "BATS"), each = nrow(cv)),
+  MAPE       = c(cv$SNAIVE, cv$ARIMA, cv$SARIMA, cv$ETS, cv$BATS)
 )
 p_folds <- ggplot(cv_long, aes(x = train_size, y = MAPE, color = model)) +
   geom_line(linewidth = 1) + geom_point(size = 2) +

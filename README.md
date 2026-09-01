@@ -15,7 +15,7 @@ Four models across two families, plus a benchmark:
 | `04_arima.R` | ARIMA(p,d,q) | ARIMA |
 | `05_sarima.R` | SARIMA(p,d,q)(P,D,Q)[12] | ARIMA |
 | `06_ets.R` | ETS(Error,Trend,Seasonal) | Exponential smoothing |
-| `07_tbats.R` | TBATS | Exponential smoothing |
+| `07_bats.R` | BATS | Exponential smoothing |
 | `08_group_comparison.R` | SNAIVE | Benchmark (no estimated parameters) |
 
 All orders and specifications are chosen by **explicit grid search ranked
@@ -68,7 +68,7 @@ scripts/03_eda.R              # decomposition, stationarity, ACF/PACF, lag plot
 scripts/04_arima.R
 scripts/05_sarima.R
 scripts/06_ets.R
-scripts/07_tbats.R
+scripts/07_bats.R
 scripts/08_group_comparison.R # all four + SNAIVE, one table
 scripts/09_rolling_cv.R       # robustness check (slow — refits everything per fold)
 ```
@@ -110,7 +110,7 @@ Key figures to pull into the report:
    cd "C:\Users\Ming\Desktop\Projects\lrt-time-series"
    git init
    git add .
-   git commit -m "LRT Ampang forecasting: ARIMA/SARIMA/ETS/TBATS"
+   git commit -m "LRT Ampang forecasting: ARIMA/SARIMA/ETS/BATS"
    git branch -M main
    git remote add origin https://github.com/<your-username>/lrt-time-series.git
    git push -u origin main
@@ -131,7 +131,7 @@ differs in the setup, not just optimiser noise.
 | Model | Holdout MAPE |
 |---|---|
 | ETS | ~2.6% |
-| TBATS | ~3.7% |
+| BATS | (no prototype figure — model switched from TBATS, pending first R run) |
 | SNAIVE (baseline) | ~5.2% |
 | SARIMA | ~6.1% |
 | ARIMA (non-seasonal) | ~16.0% |

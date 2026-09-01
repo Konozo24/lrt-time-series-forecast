@@ -13,7 +13,7 @@
 #
 # Two comparisons are reported, and they answer different questions:
 #   1. Against the baseline - is the modelling effort worth anything?
-#   2. Within family (ARIMA vs SARIMA, ETS vs TBATS) - does the seasonal
+#   2. Within family (ARIMA vs SARIMA, ETS vs BATS) - does the seasonal
 #      or extended specification earn its extra parameters?
 
 source("scripts/00_setup.R")
@@ -81,11 +81,13 @@ for (s in ets_specs) {
 ets_res <- ets_res[order(ets_res$AICc), ]
 fits[["ETS"]] <- ets_fits[[ets_res$key[1]]]
 
-# Config matches the one selected in 07_tbats.R by AIC (Box-Cox off,
-# damped trend on) - see output/tables/tbats_grid.csv. Do not change this
-# to TRUE without also updating 07_tbats.R and 09_rolling_cv.R to match.
-fits[["TBATS"]] <- tbats(train, use.box.cox = FALSE, use.trend = TRUE,
-                         use.damped.trend = TRUE)
+# ACTION REQUIRED AFTER THE FIRST BATS RUN: this config is carried over
+# from the TBATS version (Box-Cox off, damped trend on). BATS selects its
+# components independently, so once 07_bats.R has run, check the top row
+# of output/tables/bats_grid.csv and update the two flags below to match.
+# 07_bats.R, 08 and 09_rolling_cv.R must all use the same config.
+fits[["BATS"]] <- bats(train, use.box.cox = FALSE, use.trend = TRUE,
+                       use.damped.trend = TRUE)
 
 # ---- Build the comparison table ---------------------------------------
 rows <- data.frame()
@@ -127,9 +129,10 @@ cat("\n=== WITHIN-FAMILY COMPARISON ===\n")
 cat("ARIMA family - does adding seasonal terms pay off?\n")
 cat("  ARIMA  AICc:", round(fits[["ARIMA"]]$aicc, 2),
     " | SARIMA AICc:", round(fits[["SARIMA"]]$aicc, 2), "\n")
-cat("ETS family - does TBATS's trigonometric seasonality beat ETS's seasonal states?\n")
+cat("ETS family - do BATS's Box-Cox / ARMA-error / damped-trend extensions\n")
+cat("  earn their extra parameters over plain ETS?\n")
 cat("  ETS test MAPE:",   rows$MAPE_test[rows$model == "ETS"],
-    " | TBATS test MAPE:", rows$MAPE_test[rows$model == "TBATS"], "\n")
+    " | BATS test MAPE:", rows$MAPE_test[rows$model == "BATS"], "\n")
 
 # ---- Combined forecast plot ------------------------------------------
 fc_all <- lapply(names(fits), function(nm)
@@ -140,7 +143,7 @@ p <- autoplot(window(y, start = c(2022, 1))) +
   autolayer(fc_all[["ARIMA"]]$mean,  series = "ARIMA") +
   autolayer(fc_all[["SARIMA"]]$mean, series = "SARIMA") +
   autolayer(fc_all[["ETS"]]$mean,    series = "ETS") +
-  autolayer(fc_all[["TBATS"]]$mean,  series = "TBATS") +
+  autolayer(fc_all[["BATS"]]$mean,   series = "BATS") +
   autolayer(fc_all[["SNAIVE"]]$mean, series = "SNAIVE") +
   autolayer(test, series = "Actual", size = 1.1) +
   ggtitle("All models vs. actual (12-month holdout)") +
