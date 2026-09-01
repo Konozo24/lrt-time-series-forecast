@@ -81,11 +81,9 @@ for (s in ets_specs) {
 ets_res <- ets_res[order(ets_res$AICc), ]
 fits[["ETS"]] <- ets_fits[[ets_res$key[1]]]
 
-# ACTION REQUIRED AFTER THE FIRST BATS RUN: this config is carried over
-# from the TBATS version (Box-Cox off, damped trend on). BATS selects its
-# components independently, so once 07_bats.R has run, check the top row
-# of output/tables/bats_grid.csv and update the two flags below to match.
-# 07_bats.R, 08 and 09_rolling_cv.R must all use the same config.
+# Config matches the one selected in 07_bats.R by AIC (Box-Cox off,
+# damped trend on) - see output/tables/bats_grid.csv. Do not change these
+# flags without also updating 07_bats.R and 09_rolling_cv.R to match.
 fits[["BATS"]] <- bats(train, use.box.cox = FALSE, use.trend = TRUE,
                        use.damped.trend = TRUE)
 

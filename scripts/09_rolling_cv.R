@@ -78,8 +78,7 @@ for (ts_size in origins) {
   rE <- rE[order(rE$AICc), ]
   m_ets <- mape_of(forecast(eF[[rE$key[1]]], h = h)$mean)
 
-  # BATS - config carried over from the TBATS version; after the first
-  # 07_bats.R run, update these flags to match the top row of bats_grid.csv
+  # BATS - config as selected in 07_bats.R (Box-Cox off, damped trend on)
   m_tb <- mape_of(forecast(bats(tr, use.box.cox = FALSE, use.trend = TRUE,
                                  use.damped.trend = TRUE), h = h)$mean)
 

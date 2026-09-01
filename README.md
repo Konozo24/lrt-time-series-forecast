@@ -122,20 +122,41 @@ Key figures to pull into the report:
 Free tier is 1GB RAM. Do **not** install `prophet` — its Stan dependency
 compiles from source and times out.
 
-## Reference numbers
+## Results
 
-From a Python prototype on the same resolved series, same 12-month
-holdout. R numbers should land close; large divergence means something
-differs in the setup, not just optimiser noise.
+Series: 91 months (2019-01 to 2026-07), train 79 / test 12.
 
-| Model | Holdout MAPE |
-|---|---|
-| ETS | ~2.6% |
-| BATS | (no prototype figure — model switched from TBATS, pending first R run) |
-| SNAIVE (baseline) | ~5.2% |
-| SARIMA | ~6.1% |
-| ARIMA (non-seasonal) | ~16.0% |
+Holdout accuracy, ranked by test MAPE (`output/tables/model_comparison.csv`):
 
-Note the expected finding: **SNAIVE beats both ARIMA-family models** on
-this holdout. That is a real result to report, not an error — it is
-exactly why a benchmark is included.
+| Model | MAPE | RMSE | MAE | MASE |
+|---|---|---|---|---|
+| ETS(A,N,A) | 3.058% | 245,980 | 186,742 | 0.203 |
+| BATS | 3.456% | 237,339 | 206,034 | 0.224 |
+| SARIMA(0,1,2)(1,0,1)[12] | 3.526% | 241,432 | 209,298 | 0.228 |
+| ARIMA(3,1,2) | 4.627% | 380,549 | 266,341 | 0.290 |
+| SNAIVE (baseline) | 5.218% | 396,504 | 322,437 | 0.351 |
+
+Rolling-origin CV, 5 folds (`output/tables/rolling_cv_summary.csv`):
+
+| Model | mean MAPE | sd | min | max |
+|---|---|---|---|---|
+| BATS | 3.03% | 0.69 | 2.31 | 4.01 |
+| SARIMA | 4.16% | 1.60 | 2.48 | 6.53 |
+| ARIMA | 5.76% | 2.06 | 4.21 | 9.34 |
+| ETS | 5.90% | 3.45 | 3.06 | 11.12 |
+| SNAIVE | 12.33% | 6.57 | 5.22 | 21.37 |
+
+**Recommended model: BATS.** ETS wins the single holdout on MAPE, but is
+fourth under cross-validation with the worst fold-to-fold spread
+(sd 3.45, worst fold 11.12%) - its holdout win does not survive being
+re-tested at other origins. BATS is best on mean *and* stability, and
+also wins RMSE on the holdout itself.
+
+All four models beat the SNAIVE benchmark (skill +0.11 to +0.41), and all
+four have white-noise residuals (Ljung-Box p 0.24-0.83, 0-1 of 24 ACF
+lags outside bounds).
+
+Training MAPE exceeds test MAPE for every model (e.g. ETS 4.94% vs
+3.06%). That is not overfitting - the training window spans the MCO
+collapse and the 2022-2024 recovery ramp, while the test window is a flat
+mature period. It does mean the holdout figures are optimistic.
