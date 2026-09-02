@@ -33,6 +33,11 @@ dir.create("output/tables", showWarnings = FALSE, recursive = TRUE)
 fig <- function(category, name) file.path("output/plots", category, name)
 tbl <- function(name) file.path("output/tables", name)
 
+# format scientific notation (e.g. 2e+06) to millions
+scale_y_millions <- function() {
+  scale_y_continuous(labels = function(x) paste0(round(x / 1e6, 1), "M"))
+}
+
 # ---------------------------------------------------------------------
 # SHARED SETTINGS - every model script uses these, so all four models are
 # fitted and scored on exactly the same data and the same split.

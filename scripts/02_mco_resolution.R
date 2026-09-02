@@ -109,6 +109,6 @@ cat("\nSaved data/ampang_monthly_full_resolved.rds - length:", length(ampang_ts_
 # Save the mco resolution plot
 p_mco <- autoplot(cbind(Original = ampang_ts, Resolved = ampang_ts_resolved)) +
   ggtitle("LRT Ampang: Original vs. MCO-Resolved Series") +
-  ylab("Monthly ridership")
+  ylab("Monthly ridership") + scale_y_millions()
 print(p_mco)
 ggsave(fig("eda", "mco_resolution.png"), p_mco, width = 9, height = 5, dpi = 150)

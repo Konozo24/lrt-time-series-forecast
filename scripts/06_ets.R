@@ -71,7 +71,7 @@ print(summary(fit_ets))
 
 fc_ets <- forecast(fit_ets, h = H)
 p_fc <- autoplot(fc_ets) + autolayer(test, series = "Actual") +
-  ggtitle(paste(best_label, "forecast"))
+  ggtitle(paste(best_label, "forecast")) + scale_y_millions()
 print(p_fc)
 ggsave(fig("models", "ets_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 

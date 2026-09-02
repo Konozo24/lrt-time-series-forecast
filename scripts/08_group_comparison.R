@@ -176,7 +176,8 @@ p <- autoplot(window(y, start = c(2022, 1))) +
   autolayer(fc_all[["SNAIVE"]]$mean, series = "SNAIVE") +
   autolayer(test, series = "Actual", size = 1.1) +
   ggtitle("All models vs. actual (12-month holdout)") +
-  ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model"))
+  ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model")) +
+  scale_y_millions()
 print(p)
 ggsave(fig("comparison", "model_comparison_plot.png"), p, width = 10, height = 6, dpi = 150)
 

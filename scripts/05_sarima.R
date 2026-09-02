@@ -64,7 +64,7 @@ print(summary(fit_sarima))
 
 fc_sarima <- forecast(fit_sarima, h = H)
 p_fc <- autoplot(fc_sarima) + autolayer(test, series = "Actual") +
-  ggtitle(paste(label, "forecast"))
+  ggtitle(paste(label, "forecast")) + scale_y_millions()
 print(p_fc)
 ggsave(fig("models", "sarima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 

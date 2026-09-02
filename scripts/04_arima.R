@@ -60,7 +60,8 @@ print(summary(fit_arima))
 
 fc_arima <- forecast(fit_arima, h = H)
 p_fc <- autoplot(fc_arima) + autolayer(test, series = "Actual") +
-  ggtitle(paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ") forecast"))
+  ggtitle(paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ") forecast")) +
+  scale_y_millions()
 print(p_fc)
 ggsave(fig("models", "arima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 

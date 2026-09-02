@@ -210,7 +210,8 @@ p <- autoplot(y) +
   autolayer(fc_all[["SNAIVE"]]$mean, series = "SNAIVE") +
   autolayer(test, series = "Actual", linewidth = 1.1) +
   ggtitle("Sensitivity check: post-MCO subsample only (no reconstructed months)") +
-  ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model"))
+  ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model")) +
+  scale_y_millions()
 print(p)
 ggsave(fig("comparison", "sensitivity_post_mco.png"), p, width = 10, height = 6, dpi = 150)
 

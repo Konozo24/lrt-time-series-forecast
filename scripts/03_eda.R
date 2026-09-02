@@ -11,11 +11,12 @@ ampang_ts <- readRDS("data/ampang_monthly_full_resolved.rds")
 
 p1 <- autoplot(ampang_ts) +
   ggtitle("Monthly Ridership (2019-2026, MCO-resolved)") +
-  theme(plot.title = element_text(size = 10))
+  theme(plot.title = element_text(size = 10)) + scale_y_millions()
 
 p2 <- ggseasonplot(ampang_ts) +
   ggtitle("Seasonal Plot") +
-  theme(plot.title = element_text(size = 10), legend.position = "none")
+  theme(plot.title = element_text(size = 10), legend.position = "none") +
+  scale_y_millions()
 
 p3 <- ggAcf(diff(ampang_ts), lag.max = 24) +
   ggtitle("ACF (first difference)") +
@@ -34,7 +35,7 @@ ggsave(fig("eda", "eda_summary.png"), combined, width = 10, height = 7, dpi = 15
 
 # STL decomposition
 decomp <- stl(ampang_ts, s.window = "periodic", robust = TRUE)
-print(autoplot(decomp) + ggtitle("STL Decomposition"))
+print(autoplot(decomp) + ggtitle("STL Decomposition") + scale_y_millions())
 ggsave(fig("eda", "stl_decomposition.png"), width = 8, height = 6, dpi = 150)
 
 # Seasonal plot, also saved standalone (p2 above is one quadrant of the

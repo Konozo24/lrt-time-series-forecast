@@ -91,7 +91,7 @@ print(fit_bats)
 
 fc_bats <- forecast(fit_bats, h = H)
 p_fc <- autoplot(fc_bats) + autolayer(test, series = "Actual") +
-  ggtitle(paste(best_label, "forecast"))
+  ggtitle(paste(best_label, "forecast")) + scale_y_millions()
 print(p_fc)
 ggsave(fig("models", "bats_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
