@@ -140,39 +140,66 @@ Holdout accuracy, ranked by test MAPE (`output/tables/model_comparison.csv`):
 
 Rolling-origin CV, 5 folds (`output/tables/rolling_cv_summary.csv`):
 
-| Model | mean MAPE | sd | min | max |
-|---|---|---|---|---|
-| BATS | 3.06% | 0.81 | 2.33 | 4.35 |
-| SARIMA | 4.08% | 0.50 | 3.38 | 4.71 |
-| ETS | 5.23% | 2.39 | 2.90 | 8.01 |
-| ARIMA | 5.90% | 2.45 | 4.06 | 10.07 |
-| SNAIVE | 12.33% | 6.57 | 5.22 | 21.37 |
+| Model | mean MAPE | sd | min | max | mean RMSE | mean MASE |
+|---|---|---|---|---|---|---|
+| **BATS** | **3.06%** | **0.81** | 2.33 | 4.35 | **215,748** | **0.202** |
+| SARIMA | 4.08% | 0.50 | 3.38 | 4.71 | 274,150 | 0.266 |
+| ETS | 5.23% | 2.39 | 2.90 | 8.01 | 364,209 | 0.346 |
+| ARIMA | 5.90% | 2.45 | 4.06 | 10.07 | 411,745 | 0.390 |
+| SNAIVE | 12.33% | 6.57 | 5.22 | 21.37 | 762,793 | 0.801 |
 
 **Recommended model: BATS.** ETS wins the single holdout on MAPE, but is
 third under cross-validation with a fold-to-fold spread three times BATS's
 (sd 2.39 vs 0.81) - its holdout win does not survive being re-tested at
-other origins. BATS is best on CV mean *and* wins RMSE on the holdout
-itself, and it is the only model that is never worse than 4.35% at any
-origin.
+other origins. BATS is best on all three CV measures, wins RMSE on the
+holdout itself, is never worse than 4.35% at any origin, and is the only
+model to pass both overfitting rules against the CV mean (below).
 
 All four models beat the SNAIVE benchmark (skill +0.10 to +0.45).
 
-Residual diagnostics use Ljung-Box at lag 12 and lag 16, with
-`fitdf = p+q+P+Q` so the reported p-values match what
-`checkresiduals()` computes. Lag 16 rather than 24 because Hyndman's
-min(2m, T/5) rule caps at 15.8 for 79 training months:
+### Residual diagnostics
 
-| Model | fitdf | Ljung-Box p (lag 16) | White noise? |
-|---|---|---|---|
-| SARIMA(0,1,2)(1,0,1)[12] | 4 | 0.388 | yes |
-| BATS | 0 | 0.223 | yes |
-| ETS(A,N,A) | 0 | 0.128 | yes |
-| **ARIMA(2,1,3)** | 5 | **0.033** | **no** |
+Ljung-Box at lag 12 and lag 16, with `fitdf = p+q+P+Q` so the p-values
+match what `checkresiduals()` computes - `Box.test()`'s default of
+`fitdf = 0` ignores the estimated parameters and is too lenient. Lag 16
+rather than 24 because Hyndman's min(2m, T/5) rule caps at 15.8 for 79
+training months.
 
-**ARIMA is the one model with significant residual autocorrelation.** A
-non-seasonal specification cannot capture all the structure in monthly
-ridership - consistent with its higher AICc than SARIMA (2230.80 vs
-2215.56), and direct evidence that the seasonal terms earn their place.
+| Model | fitdf | p (lag 12) | p (lag 16) | ACF out (12 / 16) | White noise? |
+|---|---|---|---|---|---|
+| SARIMA(0,1,2)(1,0,1)[12] | 4 | 0.412 | 0.388 | 1 / 1 | yes |
+| BATS | 0 | 0.185 | 0.223 | 1 / 1 | yes |
+| ETS(A,N,A) | 0 | 0.104 | 0.128 | 2 / 2 | yes |
+| **ARIMA(2,1,3)** | 5 | **0.010** | **0.033** | 1 / 1 | **no** |
+
+**ARIMA is the one model with significant residual autocorrelation**, and
+it fails at both lags. A non-seasonal specification cannot capture all the
+structure in monthly ridership - consistent with its higher AICc than
+SARIMA (2230.80 vs 2215.56), and direct evidence that the seasonal terms
+earn their place.
+
+### Overfitting checks
+
+Two rules: MASE gap <= 10%, and RMSE_test/RMSE_train <= 1.3. Both are
+applied against the **CV mean** rather than the single holdout, since one
+window is one draw (`output/tables/overfit_checks_cv.csv`).
+
+| Model | RMSE ratio (CV) | <= 1.3 | MASE gap (CV) | <= 10% |
+|---|---|---|---|---|
+| **BATS** | **0.824** | yes | **0.5%** | **yes** |
+| SARIMA | 0.863 | yes | 4.5% | yes |
+| ARIMA | 1.204 | yes | 25.4% | no |
+| ETS | 1.284 | yes | 30.3% | no |
+| SNAIVE | 0.737 | yes | 24.8% | no |
+
+Every model clears the 1.3 ratio, but ETS comes closest to breaching it
+(1.284) and misses the MASE-gap rule by the widest margin of the four real
+models. BATS is effectively flat between training and cross-validated
+error (0.5% gap), i.e. it generalises without degradation.
+
+On the single holdout the ratios are lower still - ETS 0.868, BATS 0.867,
+SARIMA 0.998, ARIMA 1.071 - because train error there exceeds test error
+(see below). The CV column is the one to quote.
 
 ### Sensitivity: does the MCO reconstruction drive the result?
 
@@ -181,24 +208,38 @@ ridership - consistent with its higher AICc than SARIMA (2230.80 vs
 models on the 2022-01 onward subsample (55 months, 43 train / 12 test),
 where no observation is reconstructed:
 
-| Model | MAPE (post-MCO) | RMSE | MASE | Ljung-Box p | rank full → post |
-|---|---|---|---|---|---|
-| ETS | 4.168% | 318,488 | 0.294 | **0.0034** | 1 → 1 |
-| BATS | 4.359% | 306,929 | 0.319 | 0.4760 | 2 → 2 |
-| SARIMA | 5.042% | 355,867 | 0.358 | 0.3967 | 4 → 3 |
-| SNAIVE | 5.218% | 396,504 | 0.391 | — | 5 → 4 |
-| ARIMA | 9.971% | 676,968 | 0.715 | 0.3441 | 3 → 5 |
+| Model | MAPE (post-MCO) | RMSE | MASE | p (lag 12) | p (lag 16) | RMSE ratio | rank full → post |
+|---|---|---|---|---|---|---|---|
+| ETS | 4.168% | 318,488 | 0.294 | 0.054 | **0.003** | 0.849 | 1 → 1 |
+| **BATS** | 4.359% | 306,929 | 0.319 | 0.388 | 0.476 | 1.108 | 2 → 2 |
+| SARIMA | 5.042% | 355,867 | 0.358 | 0.159 | 0.234 | **1.325** | 4 → 3 |
+| SNAIVE | 5.218% | 396,504 | 0.391 | 0.000 | 0.000 | 0.411 | 5 → 4 |
+| ARIMA | 9.971% | 676,968 | 0.715 | 0.135 | 0.172 | **2.422** | 3 → 5 |
 
 The top two are unchanged in both order and identity, so the headline
-result does not depend on the reconstructed months. Two caveats: ARIMA
-collapses on 43 observations without seasonal terms, and **ETS fails the
-Ljung-Box test here (p = 0.0034)** - on unimputed data its accuracy edge
-comes with autocorrelation left in the residuals, while BATS passes
-cleanly (p = 0.476, 0 of 24 lags outside bounds). Rank correlation between
-the two periods is 0.70. Note that 43 training months is only 3.6 seasonal
-cycles, so this is a check on the *ranking*, not a fair accuracy contest.
+result does not depend on the reconstructed months (rank correlation
+0.70).
+
+Three things the clean subsample exposes:
+
+1. **ETS fails Ljung-Box here (p = 0.003 at lag 16).** On unimputed data
+   its accuracy edge comes with autocorrelation left in the residuals.
+2. **BATS is the only model that passes everything** - top-two accuracy,
+   white noise at both lags with **zero** ACF lags outside bounds, and the
+   RMSE ratio under 1.3.
+3. **ARIMA collapses** (MAPE 9.97%, worse than the naive benchmark; RMSE
+   ratio 2.42) and **SARIMA breaches the 1.3 rule** (1.325). Both are
+   short-sample effects: 43 training months is 3.6 seasonal cycles, and
+   the seasonal models have the most parameters to estimate from it.
+
+That last point is why this is a check on the *ranking*, not a fair
+accuracy contest - and why the 91-month series remains the primary
+analysis.
 
 Training MAPE exceeds test MAPE for every model (e.g. ETS 4.88% vs
 2.90%). That is not overfitting - the training window spans the MCO
 collapse and the 2022-2024 recovery ramp, while the test window is a flat
-mature period. It does mean the holdout figures are optimistic.
+mature period. It does mean the holdout figures are optimistic, which is
+the reason the overfitting rules above are judged against the CV mean:
+under cross-validation the direction reverses for ARIMA and ETS (ratios
+1.204 and 1.284) and the holdout's flattering picture disappears.
