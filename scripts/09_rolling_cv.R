@@ -43,8 +43,6 @@ for (ts_size in origins) {
       RMSE = sqrt(mean(e^2)),
       MASE = mean(abs(e)) / scale)
   }
-  mape_of <- function(fc_mean) unname(metrics_of(fc_mean)["MAPE"])
-
   # SNAIVE baseline
   m_sn <- metrics_of(snaive(tr, h = h)$mean)
 

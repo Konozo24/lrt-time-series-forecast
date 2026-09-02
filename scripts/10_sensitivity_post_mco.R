@@ -132,6 +132,8 @@ for (nm in names(fits)) {
   a   <- accuracy(fc, test)
   g   <- gap_check(a)
   r   <- residuals(fit)
+  p12 <- lb_test(fit, 12)$p.value
+  p16 <- lb_test(fit, LAG_MAX)$p.value
   rows <- rbind(rows, data.frame(
     model        = nm,
     MAPE_test    = round(a["Test set", "MAPE"], 3),
@@ -141,10 +143,9 @@ for (nm in names(fits)) {
     RMSE_train   = round(g$rmse_train, 0),
     MASE_train   = round(g$mase_train, 3),
     fitdf        = model_fitdf(fit),
-    lb_pvalue_12 = round(lb_test(fit, 12)$p.value, 4),
-    lb_pvalue_16 = round(lb_test(fit, LAG_MAX)$p.value, 4),
-    lb_pass      = (lb_test(fit, 12)$p.value > 0.05) &
-                   (lb_test(fit, LAG_MAX)$p.value > 0.05),
+    lb_pvalue_12 = round(p12, 4),
+    lb_pvalue_16 = round(p16, 4),
+    lb_pass      = (p12 > 0.05) & (p16 > 0.05),
     n_lags_out_12 = acf_out_of_bounds(r, lag.max = 12),
     n_lags_out_16 = acf_out_of_bounds(r, lag.max = LAG_MAX),
     mase_gap_pct = round(g$mase_gap * 100, 1),
