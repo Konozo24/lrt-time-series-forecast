@@ -131,16 +131,27 @@ for (nm in names(fits)) {
   fc  <- if (nm == "SNAIVE") fit else forecast(fit, h = H)
   a   <- accuracy(fc, test)
   g   <- gap_check(a)
-  lb  <- Box.test(residuals(fit), lag = LAG_MAX, type = "Ljung-Box")
+  r   <- residuals(fit)
   rows <- rbind(rows, data.frame(
     model        = nm,
     MAPE_test    = round(a["Test set", "MAPE"], 3),
     RMSE_test    = round(a["Test set", "RMSE"], 0),
     MAE_test     = round(a["Test set", "MAE"], 0),
     MASE_test    = round(a["Test set", "MASE"], 3),
-    lb_pvalue    = round(lb$p.value, 4),
-    n_lags_out   = acf_out_of_bounds(residuals(fit)),
-    mape_gap_pct = round(g$mape_gap * 100, 1)))
+    RMSE_train   = round(g$rmse_train, 0),
+    MASE_train   = round(g$mase_train, 3),
+    fitdf        = model_fitdf(fit),
+    lb_pvalue_12 = round(lb_test(fit, 12)$p.value, 4),
+    lb_pvalue_16 = round(lb_test(fit, LAG_MAX)$p.value, 4),
+    lb_pass      = (lb_test(fit, 12)$p.value > 0.05) &
+                   (lb_test(fit, LAG_MAX)$p.value > 0.05),
+    n_lags_out_12 = acf_out_of_bounds(r, lag.max = 12),
+    n_lags_out_16 = acf_out_of_bounds(r, lag.max = LAG_MAX),
+    mase_gap_pct = round(g$mase_gap * 100, 1),
+    within_10pct = g$within_10pct,
+    rmse_ratio   = round(g$rmse_ratio, 3),
+    within_1_3x  = g$within_1_3x,
+    direction    = g$direction))
 }
 rows <- rows[order(rows$MAPE_test), ]
 

@@ -30,10 +30,23 @@ for (ts_size in origins) {
   tr <- head(y, ts_size)
   te <- window(y, start = time(y)[ts_size + 1], end = time(y)[ts_size + h])
 
-  mape_of <- function(fc_mean) mean(abs((te - fc_mean) / te)) * 100
+  # Three metrics per fold, not just MAPE. RMSE is needed for the
+  # RMSE_test/RMSE_train <= 1.3 rule judged against the CV mean (the
+  # single holdout is one draw; the CV mean is the more reliable
+  # denominator), and MASE is the scale-free accuracy measure. MASE is
+  # scaled by THIS fold's in-sample seasonal-naive MAE, matching
+  # forecast::accuracy()'s definition for seasonal data.
+  metrics_of <- function(fc_mean) {
+    e     <- as.numeric(te) - as.numeric(fc_mean)
+    scale <- mean(abs(diff(as.numeric(tr), lag = 12)))
+    c(MAPE = mean(abs(e / as.numeric(te))) * 100,
+      RMSE = sqrt(mean(e^2)),
+      MASE = mean(abs(e)) / scale)
+  }
+  mape_of <- function(fc_mean) unname(metrics_of(fc_mean)["MAPE"])
 
   # SNAIVE baseline
-  m_sn <- mape_of(snaive(tr, h = h)$mean)
+  m_sn <- metrics_of(snaive(tr, h = h)$mean)
 
   # ARIMA (non-seasonal), order re-selected per fold by AICc
   d1 <- ndiffs(tr, test = "kpss")
@@ -44,8 +57,8 @@ for (ts_size in origins) {
     if (!is.null(f)) rA <- rbind(rA, data.frame(p = gA$p[i], q = gA$q[i], AICc = f$aicc))
   }
   rA <- rA[order(rA$AICc), ]
-  m_ar <- mape_of(forecast(Arima(tr, order = c(rA$p[1], d1, rA$q[1]),
-                                 include.drift = (d1 > 0)), h = h)$mean)
+  m_ar <- metrics_of(forecast(Arima(tr, order = c(rA$p[1], d1, rA$q[1]),
+                                    include.drift = (d1 > 0)), h = h)$mean)
 
   # SARIMA, orders re-selected per fold
   D1 <- nsdiffs(tr)
@@ -59,9 +72,9 @@ for (ts_size in origins) {
                                                 P = gS$P[i], Q = gS$Q[i], AICc = f$aicc))
   }
   rS <- rS[order(rS$AICc), ]
-  m_sa <- mape_of(forecast(Arima(tr, order = c(rS$p[1], d2, rS$q[1]),
-                                 seasonal = list(order = c(rS$P[1], D1, rS$Q[1]),
-                                                 period = 12)), h = h)$mean)
+  m_sa <- metrics_of(forecast(Arima(tr, order = c(rS$p[1], d2, rS$q[1]),
+                                    seasonal = list(order = c(rS$P[1], D1, rS$Q[1]),
+                                                    period = 12)), h = h)$mean)
 
   # ETS, spec re-selected per fold by AICc
   specs <- list(c("ANN", NA), c("AAN", "TRUE"), c("ANA", NA),
@@ -76,26 +89,39 @@ for (ts_size in origins) {
     }
   }
   rE <- rE[order(rE$AICc), ]
-  m_ets <- mape_of(forecast(eF[[rE$key[1]]], h = h)$mean)
+  m_ets <- metrics_of(forecast(eF[[rE$key[1]]], h = h)$mean)
 
   # BATS - config as selected in 07_bats.R (Box-Cox off, damped trend on)
-  m_tb <- mape_of(forecast(bats(tr, use.box.cox = FALSE, use.trend = TRUE,
-                                 use.damped.trend = TRUE), h = h)$mean)
+  m_tb <- metrics_of(forecast(bats(tr, use.box.cox = FALSE, use.trend = TRUE,
+                                    use.damped.trend = TRUE), h = h)$mean)
 
-  cv <- rbind(cv, data.frame(train_size = ts_size, SNAIVE = m_sn, ARIMA = m_ar,
-                             SARIMA = m_sa, ETS = m_ets, BATS = m_tb))
+  # Long format: one row per model per fold, three metrics each.
+  fold <- rbind(m_sn, m_ar, m_sa, m_ets, m_tb)
+  cv <- rbind(cv, data.frame(train_size = ts_size,
+                             model = c("SNAIVE", "ARIMA", "SARIMA", "ETS", "BATS"),
+                             MAPE = fold[, "MAPE"], RMSE = fold[, "RMSE"],
+                             MASE = fold[, "MASE"], row.names = NULL))
   cat("origin", ts_size, "done\n")
 }
 
-cat("\n=== Per-fold MAPE (%) ===\n")
-print(round(cv, 2), row.names = FALSE)
+models <- c("SNAIVE", "ARIMA", "SARIMA", "ETS", "BATS")
 
-summary_cv <- data.frame(
-  model    = c("SNAIVE", "ARIMA", "SARIMA", "ETS", "BATS"),
-  mean_MAPE = round(sapply(cv[, -1], mean), 2),
-  sd_MAPE   = round(sapply(cv[, -1], sd), 2),
-  min_MAPE  = round(sapply(cv[, -1], min), 2),
-  max_MAPE  = round(sapply(cv[, -1], max), 2))
+cat("\n=== Per-fold MAPE (%) ===\n")
+# one value per (fold, model) cell, so mean() just unwraps it into a
+# numeric matrix - tapply with identity can come back as a list.
+print(round(with(cv, tapply(MAPE, list(train_size, model), mean))[, models], 2))
+
+summary_cv <- do.call(rbind, lapply(models, function(m) {
+  d <- cv[cv$model == m, ]
+  data.frame(model     = m,
+             mean_MAPE = round(mean(d$MAPE), 2),
+             sd_MAPE   = round(sd(d$MAPE), 2),
+             min_MAPE  = round(min(d$MAPE), 2),
+             max_MAPE  = round(max(d$MAPE), 2),
+             mean_RMSE = round(mean(d$RMSE), 0),
+             mean_MASE = round(mean(d$MASE), 3),
+             n_folds   = nrow(d))
+}))
 summary_cv <- summary_cv[order(summary_cv$mean_MAPE), ]
 
 cat("\n=== Rolling-CV summary (ranked by mean MAPE) ===\n")
@@ -105,6 +131,43 @@ cat("\nsd_MAPE is the stability measure: a model with a low mean but high sd\n",
 
 write.csv(cv, tbl("rolling_cv_folds.csv"), row.names = FALSE)
 write.csv(summary_cv, tbl("rolling_cv_summary.csv"), row.names = FALSE)
+
+# ---- Overfitting checks judged against the CV mean --------------------
+# 08_group_comparison.R applies both rules against the SINGLE holdout.
+# That holdout is one draw, so the same rules are re-applied here with the
+# CV mean as the test-side term - the more reliable version, and the one
+# to quote in the report. Training-side terms come from the full-training
+# fits in model_comparison.csv, so run 08 before this script.
+main_path <- tbl("model_comparison.csv")
+if (file.exists(main_path)) {
+  main <- read.csv(main_path, stringsAsFactors = FALSE)
+  if (all(c("RMSE_train", "MASE_train") %in% names(main))) {
+    ov <- merge(summary_cv[, c("model", "mean_RMSE", "mean_MASE")],
+                main[, c("model", "RMSE_train", "MASE_train",
+                         "RMSE_test", "MASE_test")], by = "model")
+    ov$rmse_ratio_cv      <- round(ov$mean_RMSE / ov$RMSE_train, 3)
+    ov$within_1_3x_cv     <- ov$rmse_ratio_cv <= 1.3
+    ov$gap_pct_cv         <- round(abs(ov$mean_MASE - ov$MASE_train) /
+                                     ov$mean_MASE * 100, 1)
+    ov$within_10pct_cv    <- ov$gap_pct_cv <= 10
+    ov$rmse_ratio_holdout <- round(ov$RMSE_test / ov$RMSE_train, 3)
+    ov <- ov[order(ov$rmse_ratio_cv), ]
+
+    cat("\n=== OVERFITTING CHECKS vs CV MEAN (authoritative) ===\n")
+    print(ov[, c("model", "RMSE_train", "mean_RMSE", "rmse_ratio_cv",
+                 "within_1_3x_cv", "MASE_train", "mean_MASE", "gap_pct_cv",
+                 "within_10pct_cv", "rmse_ratio_holdout")], row.names = FALSE)
+    cat("\nrmse_ratio_holdout is shown for reference only - the CV column is the\n",
+        "one to report, since it averages over five origins instead of one.\n")
+    write.csv(ov, tbl("overfit_checks_cv.csv"), row.names = FALSE)
+  } else {
+    cat("\nNote: model_comparison.csv has no RMSE_train/MASE_train columns.\n",
+        "Re-run 08_group_comparison.R to regenerate it, then re-run this script.\n")
+  }
+} else {
+  cat("\nNote:", main_path, "not found - run 08_group_comparison.R first to get\n",
+      "the CV-based overfitting checks.\n")
+}
 
 # ---- Stability plot: mean MAPE vs. sd MAPE -----------------------------
 # The point of rolling CV is this trade-off, not just the mean ranking:
@@ -120,12 +183,8 @@ print(p_stab)
 ggsave(fig("rolling_cv_stability.png"), p_stab, width = 7, height = 5, dpi = 150)
 
 # ---- Per-fold line plot: does any model's rank flip across folds? -----
-cv_long <- data.frame(
-  train_size = rep(cv$train_size, times = 5),
-  model      = rep(c("SNAIVE", "ARIMA", "SARIMA", "ETS", "BATS"), each = nrow(cv)),
-  MAPE       = c(cv$SNAIVE, cv$ARIMA, cv$SARIMA, cv$ETS, cv$BATS)
-)
-p_folds <- ggplot(cv_long, aes(x = train_size, y = MAPE, color = model)) +
+# `cv` is already long (one row per model per fold), so it plots directly.
+p_folds <- ggplot(cv, aes(x = train_size, y = MAPE, color = model)) +
   geom_line(linewidth = 1) + geom_point(size = 2) +
   labs(title = "MAPE per rolling-CV fold, by model",
        x = "Training window size (months)", y = "MAPE (%)") +

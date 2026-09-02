@@ -103,12 +103,23 @@ cat("\n--- Residual diagnostics ---\n")
 checkresiduals(fit_bats)
 dev.copy(png, filename = fig("bats_residuals.png"), width = 900, height = 700, res = 130)
 dev.off()
-print(Box.test(residuals(fit_bats), lag = LAG_MAX, type = "Ljung-Box"))
-cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_bats)), "/", LAG_MAX, "\n")
+# Both lags: a spike at the seasonal lag stands out in a lag-12 test but
+# gets diluted among mostly-zero terms in a longer one, so clear both.
+# lb_test() supplies fitdf, which is 0 for BATS - matching how
+# checkresiduals() treats it.
+print(lb_test(fit_bats, 12))
+print(lb_test(fit_bats, LAG_MAX))
+cat("ACF-out-of-bounds: lag12 =", acf_out_of_bounds(residuals(fit_bats), lag.max = 12),
+    "/ 12 | lag", LAG_MAX, "=", acf_out_of_bounds(residuals(fit_bats), lag.max = LAG_MAX),
+    "/", LAG_MAX, "\n")
 
 g <- gap_check(accuracy(fc_bats, test))
-cat("Train/test MAPE gap:", round(g$mape_gap * 100, 1),
-    "% | within 10%:", g$within_10pct, "\n")
+cat("\nOverfitting checks (", g$direction, ")\n")
+cat("  MASE gap  :", round(g$mase_gap * 100, 1), "% | <= 10%  :", g$within_10pct, "\n")
+cat("  RMSE ratio:", round(g$rmse_ratio, 3), "  | <= 1.3x :", g$within_1_3x, "\n")
+cat("  (MAPE gap", round(g$mape_gap * 100, 1),
+    "% reported only - distorted by the level difference between the\n",
+    "  MCO-era training window and the test window, so not part of the rule)\n")
 
 # ---- Step 4: save in the shared summary shape -------------------------
 summ <- model_summary("BATS", fit_bats, fc_bats, test)

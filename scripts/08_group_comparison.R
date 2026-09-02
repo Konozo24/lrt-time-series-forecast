@@ -94,22 +94,52 @@ for (nm in names(fits)) {
   fc  <- if (nm == "SNAIVE") fit else forecast(fit, h = H)
   a   <- accuracy(fc, test)
   g   <- gap_check(a)
-  lb  <- Box.test(residuals(fit), lag = LAG_MAX, type = "Ljung-Box")
+  r   <- residuals(fit)
   rows <- rbind(rows, data.frame(
     model        = nm,
     MAPE_test    = round(a["Test set", "MAPE"], 3),
     RMSE_test    = round(a["Test set", "RMSE"], 0),
     MAE_test     = round(a["Test set", "MAE"], 0),
     MASE_test    = round(a["Test set", "MASE"], 3),
-    lb_pvalue    = round(lb$p.value, 4),
-    n_lags_out   = acf_out_of_bounds(residuals(fit)),
-    mape_gap_pct = round(g$mape_gap * 100, 1),
-    within_10pct = g$within_10pct))
+    RMSE_train   = round(g$rmse_train, 0),
+    MASE_train   = round(g$mase_train, 3),
+    fitdf        = model_fitdf(fit),
+    lb_pvalue_12 = round(lb_test(fit, 12)$p.value, 4),
+    lb_pvalue_16 = round(lb_test(fit, LAG_MAX)$p.value, 4),
+    lb_pass      = (lb_test(fit, 12)$p.value > 0.05) &
+                   (lb_test(fit, LAG_MAX)$p.value > 0.05),
+    n_lags_out_12 = acf_out_of_bounds(r, lag.max = 12),
+    n_lags_out_16 = acf_out_of_bounds(r, lag.max = LAG_MAX),
+    mase_gap_pct = round(g$mase_gap * 100, 1),
+    within_10pct = g$within_10pct,
+    rmse_ratio   = round(g$rmse_ratio, 3),
+    within_1_3x  = g$within_1_3x,
+    direction    = g$direction,
+    mape_gap_pct = round(g$mape_gap * 100, 1)))
 }
 rows <- rows[order(rows$MAPE_test), ]
 
 cat("\n=== MODEL COMPARISON (ranked by test MAPE) ===\n")
-print(rows, row.names = FALSE)
+print(rows[, c("model", "MAPE_test", "RMSE_test", "MAE_test", "MASE_test")],
+      row.names = FALSE)
+
+# ---- Overfitting checks, split out so both rules are legible ----------
+# Rule 1: MASE gap <= 10%.  Rule 2: RMSE_test/RMSE_train <= 1.3.
+# `direction` matters: on this series train error usually EXCEEDS test
+# error, because the training window spans the MCO disruption and the
+# recovery ramp while the test window is a flat mature period. That is
+# the opposite of overfitting, so a large gap in the "train worse"
+# direction is not a red flag.
+cat("\n=== OVERFITTING CHECKS ===\n")
+print(rows[, c("model", "MASE_train", "MASE_test", "mase_gap_pct", "within_10pct",
+               "RMSE_train", "RMSE_test", "rmse_ratio", "within_1_3x", "direction")],
+      row.names = FALSE)
+
+cat("\n=== RESIDUAL DIAGNOSTICS (both lags, fitdf-corrected) ===\n")
+print(rows[, c("model", "fitdf", "lb_pvalue_12", "lb_pvalue_16", "lb_pass",
+               "n_lags_out_12", "n_lags_out_16")], row.names = FALSE)
+cat("\nlb_pass = white noise at BOTH lags (p > 0.05). fitdf = p+q+P+Q, the\n",
+    "parameters the ARIMA family estimates; ignoring it inflates p-values.\n")
 
 # ---- Skill vs. the SNAIVE baseline ------------------------------------
 # Skill score = 1 - (model error / baseline error). Positive means the
