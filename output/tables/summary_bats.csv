@@ -1,0 +1,2 @@
+"model","MAPE_test","RMSE_test","MAE_test","MASE_test","RMSE_train","MASE_train","fitdf","lb_pvalue_12","lb_pvalue_16","lb_pass","n_lags_out_12","n_lags_out_16","mase_gap_pct","within_10pct","rmse_ratio","within_1_3x","direction","mape_gap_pct"
+"BATS",3.302,226856,196828,0.219,261769,0.203,0,0.185,0.2229,TRUE,1,1,7.3,TRUE,0.867,TRUE,"test worse",24.1
