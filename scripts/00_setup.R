@@ -1,5 +1,5 @@
 # 00_setup.R - packages. Run once per Posit Cloud session.
-# Free tier: 1GB RAM. Do NOT install prophet (Stan compile fails/times`` out).
+# Free tier: 1GB RAM. Do NOT install prophet (Stan compile fails/times out).
 
 pkgs <- c("forecast", "tseries", "dplyr", "ggplot2", "lubridate", "gridExtra")
 new <- pkgs[!pkgs %in% installed.packages()[, "Package"]]
