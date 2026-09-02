@@ -62,7 +62,7 @@ fc_arima <- forecast(fit_arima, h = H)
 p_fc <- autoplot(fc_arima) + autolayer(test, series = "Actual") +
   ggtitle(paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ") forecast"))
 print(p_fc)
-ggsave(fig("arima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
+ggsave(fig("models", "arima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_arima, test))
@@ -74,7 +74,7 @@ print(accuracy(fc_arima, test))
 # twice (which would duplicate its console Ljung-Box text output).
 cat("\n--- Residual diagnostics ---\n")
 checkresiduals(fit_arima)
-dev.copy(png, filename = fig("arima_residuals.png"), width = 900, height = 700, res = 130)
+dev.copy(png, filename = fig("models", "arima_residuals.png"), width = 900, height = 700, res = 130)
 dev.off()
 # Both lags: a spike at the seasonal lag stands out in a lag-12 test but
 # gets diluted among mostly-zero terms in a longer one, so clear both.
@@ -100,5 +100,3 @@ summ <- model_summary(paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ")"),
                       fit_arima, fc_arima, test)
 print(summ)
 write.csv(summ, tbl("summary_arima.csv"), row.names = FALSE)
-saveRDS(fit_arima, mdl("fit_arima.rds"))
-saveRDS(fc_arima,  mdl("fc_arima.rds"))

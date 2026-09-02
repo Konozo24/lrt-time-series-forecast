@@ -1,10 +1,9 @@
 # 01_data_prep.R - load + aggregate LRT Ampang daily ridership to monthly.
 # Source: data.gov.my Daily Public Transport Ridership dataset
-# (https://data.gov.my/data-catalogue/ridership_headline), Prasarana
-# Malaysia + Ministry of Transport, CC BY 4.0.
+# (https://data.gov.my/data-catalogue/ridership_headline)
 #
-# IMPORTANT: full period retained (2019-01 to 2026-06), including the
-# COVID-19 MCO period, per tutor's instruction. The 2020-2021 disruption
+# Important: full period retained (2019-01 to 2026-06), including the
+# COVID-19 MCO period. The 2020-2021 disruption
 # is resolved via a known-intervention adjustment in 02_mco_resolution.R,
 # not by truncating the series.
 
@@ -23,8 +22,7 @@ monthly <- raw %>%
   ) %>%
   ungroup()
 
-# Drop the last month if it's incomplete (partial calendar month at the
-# time of data extraction)
+# Drop partial calendar month
 monthly <- monthly %>% filter(n_days >= 28)
 
 cat("Monthly series:", nrow(monthly), "months,",

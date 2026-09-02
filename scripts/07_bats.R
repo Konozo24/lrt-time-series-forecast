@@ -93,7 +93,7 @@ fc_bats <- forecast(fit_bats, h = H)
 p_fc <- autoplot(fc_bats) + autolayer(test, series = "Actual") +
   ggtitle(paste(best_label, "forecast"))
 print(p_fc)
-ggsave(fig("bats_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
+ggsave(fig("models", "bats_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_bats, test))
@@ -101,7 +101,7 @@ print(accuracy(fc_bats, test))
 # ---- Step 3: residual diagnostics -------------------------------------
 cat("\n--- Residual diagnostics ---\n")
 checkresiduals(fit_bats)
-dev.copy(png, filename = fig("bats_residuals.png"), width = 900, height = 700, res = 130)
+dev.copy(png, filename = fig("models", "bats_residuals.png"), width = 900, height = 700, res = 130)
 dev.off()
 # Both lags: a spike at the seasonal lag stands out in a lag-12 test but
 # gets diluted among mostly-zero terms in a longer one, so clear both.
@@ -125,5 +125,3 @@ cat("  (MAPE gap", round(g$mape_gap * 100, 1),
 summ <- model_summary("BATS", fit_bats, fc_bats, test)
 print(summ)
 write.csv(summ, tbl("summary_bats.csv"), row.names = FALSE)
-saveRDS(fit_bats, mdl("fit_bats.rds"))
-saveRDS(fc_bats,  mdl("fc_bats.rds"))

@@ -178,7 +178,7 @@ p <- autoplot(window(y, start = c(2022, 1))) +
   ggtitle("All models vs. actual (12-month holdout)") +
   ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model"))
 print(p)
-ggsave(fig("model_comparison_plot.png"), p, width = 10, height = 6, dpi = 150)
+ggsave(fig("comparison", "model_comparison_plot.png"), p, width = 10, height = 6, dpi = 150)
 
 # ---- Bar chart: MAPE by model, benchmark called out ------------------
 p_bar <- ggplot(rows, aes(x = reorder(model, MAPE_test), y = MAPE_test,
@@ -191,4 +191,4 @@ p_bar <- ggplot(rows, aes(x = reorder(model, MAPE_test), y = MAPE_test,
        x = NULL, y = "MAPE (%)") +
   theme_minimal()
 print(p_bar)
-ggsave(fig("model_comparison_bar.png"), p_bar, width = 8, height = 5, dpi = 150)
+ggsave(fig("comparison", "model_comparison_bar.png"), p_bar, width = 8, height = 5, dpi = 150)

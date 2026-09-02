@@ -12,21 +12,26 @@ library(ggplot2)
 library(lubridate)
 library(gridExtra)  # grid.arrange() - combine multiple ggplot panels into one figure
 
-# Ensure output/ (split into figures/tables/models) and data/ exist - git
-# does not track empty directories
+# Ensure output/ and data/ exist - git does not track empty directories.
+# output/plots is split by AUDIENCE, matching how the figures get used when
+# writing the report:
+#   plots/eda/        EDA panels - decomposition, stationarity context
+#   plots/models/     one forecast + one residuals plot per model - these
+#                      are what go in each member's INDIVIDUAL report
+#   plots/comparison/ cross-model plots (bar chart, CV stability, per-fold,
+#                      sensitivity) - these are what go in the GROUP report
 dir.create("data", showWarnings = FALSE)
-dir.create("output/figures", showWarnings = FALSE, recursive = TRUE)
-dir.create("output/tables",  showWarnings = FALSE, recursive = TRUE)
-dir.create("output/models",  showWarnings = FALSE, recursive = TRUE)
+dir.create("output/plots/eda",        showWarnings = FALSE, recursive = TRUE)
+dir.create("output/plots/models",     showWarnings = FALSE, recursive = TRUE)
+dir.create("output/plots/comparison", showWarnings = FALSE, recursive = TRUE)
+dir.create("output/tables", showWarnings = FALSE, recursive = TRUE)
 
 # Path helpers so every script writes to the right subfolder without
-# spelling out "output/figures/..." everywhere:
-#   fig("x.png")    -> "output/figures/x.png"   (plots)
-#   tbl("x.csv")    -> "output/tables/x.csv"    (grids, summaries, comparisons)
-#   mdl("x.rds")    -> "output/models/x.rds"    (fitted model / forecast objects)
-fig <- function(name) file.path("output/figures", name)
-tbl <- function(name) file.path("output/tables",  name)
-mdl <- function(name) file.path("output/models",  name)
+# spelling out "output/plots/..." everywhere:
+#   fig("eda", "x.png")   -> "output/plots/eda/x.png"
+#   tbl("x.csv")          -> "output/tables/x.csv"  (grids, summaries, comparisons)
+fig <- function(category, name) file.path("output/plots", category, name)
+tbl <- function(name) file.path("output/tables", name)
 
 # ---------------------------------------------------------------------
 # SHARED SETTINGS - every model script uses these, so all four models are

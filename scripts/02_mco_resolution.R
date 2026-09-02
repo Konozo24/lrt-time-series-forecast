@@ -1,6 +1,5 @@
 # 02_mco_resolution.R - resolve the COVID-19 MCO structural break WITHOUT
-# removing any months from the series (tutor's requirement: all periods,
-# including MCO, must be included and the resolution explained).
+# removing any months from the series.
 #
 # Approach tried FIRST and REJECTED: automatic outlier detection via STL
 # residual thresholding (flag any month with |remainder| > 3*MAD). This
@@ -107,8 +106,9 @@ saveRDS(ampang_ts_resolved, "data/ampang_monthly_full_resolved.rds")
 cat("\nSaved data/ampang_monthly_full_resolved.rds - length:", length(ampang_ts_resolved),
     "(all", length(ampang_ts), "months retained, MCO window resolved not removed)\n")
 
-print(
-  autoplot(cbind(Original = ampang_ts, Resolved = ampang_ts_resolved)) +
-    ggtitle("LRT Ampang: Original vs. MCO-Resolved Series") +
-    ylab("Monthly ridership")
-)
+# Save the mco resolution plot
+p_mco <- autoplot(cbind(Original = ampang_ts, Resolved = ampang_ts_resolved)) +
+  ggtitle("LRT Ampang: Original vs. MCO-Resolved Series") +
+  ylab("Monthly ridership")
+print(p_mco)
+ggsave(fig("eda", "mco_resolution.png"), p_mco, width = 9, height = 5, dpi = 150)

@@ -212,7 +212,7 @@ p <- autoplot(y) +
   ggtitle("Sensitivity check: post-MCO subsample only (no reconstructed months)") +
   ylab("Monthly ridership") + guides(colour = guide_legend(title = "Model"))
 print(p)
-ggsave(fig("sensitivity_post_mco.png"), p, width = 10, height = 6, dpi = 150)
+ggsave(fig("comparison", "sensitivity_post_mco.png"), p, width = 10, height = 6, dpi = 150)
 
 cat("\nWrote:", tbl("sensitivity_post_mco.csv"), "and",
-    fig("sensitivity_post_mco.png"), "\n")
+    fig("comparison", "sensitivity_post_mco.png"), "\n")

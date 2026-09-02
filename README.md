@@ -81,29 +81,45 @@ for its side-by-side ranking, so run 08 before it.
 
 ## Output structure
 
-Everything written by scripts 03–09 lands in one of three subfolders
-under `output/`, so the folder doesn't fill up with 20+ mixed files:
+Everything written by scripts 03–10 lands in one of two places under
+`output/`. Plots are split by AUDIENCE - which report each one belongs
+in - not just by script:
 
 ```
 output/
-├── figures/   forecast plots, residual diagnostics, EDA panels, CV plots (.png)
-├── tables/    grid searches, per-model summaries, comparisons (.csv)
-└── models/    fitted model + forecast objects (.rds)
+├── plots/
+│   ├── eda/         EDA panels - decomposition, stationarity context
+│   ├── models/       one forecast + one residuals plot per model - go
+│   │                  in each member's INDIVIDUAL report
+│   └── comparison/   cross-model plots (bar chart, CV stability,
+│                      per-fold, sensitivity) - go in the GROUP report
+└── tables/    grid searches, per-model summaries, comparisons (.csv)
 ```
 
-Each script uses three small path helpers defined in `00_setup.R` —
-`fig("name.png")`, `tbl("name.csv")`, `mdl("name.rds")` — instead of
-writing `"output/..."` paths directly, so the destination folder is
-never spelled out by hand in each script.
+Each script uses two small path helpers defined in `00_setup.R` —
+`fig(category, "name.png")`, `tbl("name.csv")` — instead of writing
+`"output/..."` paths directly, so the destination folder is never
+spelled out by hand in each script. Fitted model objects are not saved
+to disk - each script's `fit_*`/`fc_*` objects are used within that
+same run (plots, diagnostics, the summary CSV) and nothing downstream
+reads a saved model back in, so there is nothing to gain by persisting
+them.
 
 Key figures to pull into the report:
-- `figures/eda_summary.png`, `stl_decomposition.png`, `lag_plot.png` — EDA
-- `figures/<model>_forecast.png`, `<model>_residuals.png` — per-model
-- `figures/model_comparison_plot.png` — all 4 models + SNAIVE vs. actual
-- `figures/model_comparison_bar.png` — MAPE ranking bar chart
-- `figures/rolling_cv_stability.png` — accuracy-vs-stability scatter (the
-  ETS finding lives here: high mean, high variance)
-- `figures/rolling_cv_per_fold.png` — MAPE per model across folds
+- `plots/eda/mco_resolution.png` — original vs. MCO-resolved series
+  (from `02_mco_resolution.R`) - the visual evidence for the whole
+  reconstruction methodology
+- `plots/eda/eda_summary.png`, `stl_decomposition.png`, `seasonal_plot.png`,
+  `lag_plot.png` — EDA
+- `plots/models/<model>_forecast.png`, `<model>_residuals.png` — per-model,
+  for individual reports
+- `plots/comparison/model_comparison_plot.png` — all 4 models + SNAIVE vs.
+  actual
+- `plots/comparison/model_comparison_bar.png` — MAPE ranking bar chart
+- `plots/comparison/rolling_cv_stability.png` — accuracy-vs-stability
+  scatter (the ETS finding lives here: high mean, high variance)
+- `plots/comparison/rolling_cv_per_fold.png` — MAPE per model across folds
+- `plots/comparison/sensitivity_post_mco.png` — post-MCO subsample check
 
 ## Importing into Posit Cloud from GitHub
 

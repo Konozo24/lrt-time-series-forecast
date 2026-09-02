@@ -66,7 +66,7 @@ fc_sarima <- forecast(fit_sarima, h = H)
 p_fc <- autoplot(fc_sarima) + autolayer(test, series = "Actual") +
   ggtitle(paste(label, "forecast"))
 print(p_fc)
-ggsave(fig("sarima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
+ggsave(fig("models", "sarima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_sarima, test))
@@ -74,7 +74,7 @@ print(accuracy(fc_sarima, test))
 # ---- Step 4: residual diagnostics -------------------------------------
 cat("\n--- Residual diagnostics ---\n")
 checkresiduals(fit_sarima)
-dev.copy(png, filename = fig("sarima_residuals.png"), width = 900, height = 700, res = 130)
+dev.copy(png, filename = fig("models", "sarima_residuals.png"), width = 900, height = 700, res = 130)
 dev.off()
 # Both lags: a spike at the seasonal lag stands out in a lag-12 test but
 # gets diluted among mostly-zero terms in a longer one, so clear both.
@@ -99,5 +99,3 @@ cat("  (MAPE gap", round(g$mape_gap * 100, 1),
 summ <- model_summary(label, fit_sarima, fc_sarima, test)
 print(summ)
 write.csv(summ, tbl("summary_sarima.csv"), row.names = FALSE)
-saveRDS(fit_sarima, mdl("fit_sarima.rds"))
-saveRDS(fc_sarima,  mdl("fc_sarima.rds"))

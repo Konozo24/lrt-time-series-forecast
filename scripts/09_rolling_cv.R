@@ -178,7 +178,7 @@ p_stab <- ggplot(summary_cv, aes(x = mean_MAPE, y = sd_MAPE, label = model)) +
        x = "Mean MAPE across folds (%)", y = "SD of MAPE across folds (stability)") +
   theme_minimal()
 print(p_stab)
-ggsave(fig("rolling_cv_stability.png"), p_stab, width = 7, height = 5, dpi = 150)
+ggsave(fig("comparison", "rolling_cv_stability.png"), p_stab, width = 7, height = 5, dpi = 150)
 
 # ---- Per-fold line plot: does any model's rank flip across folds? -----
 # `cv` is already long (one row per model per fold), so it plots directly.
@@ -188,4 +188,4 @@ p_folds <- ggplot(cv, aes(x = train_size, y = MAPE, color = model)) +
        x = "Training window size (months)", y = "MAPE (%)") +
   theme_minimal()
 print(p_folds)
-ggsave(fig("rolling_cv_per_fold.png"), p_folds, width = 8, height = 5, dpi = 150)
+ggsave(fig("comparison", "rolling_cv_per_fold.png"), p_folds, width = 8, height = 5, dpi = 150)

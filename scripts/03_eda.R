@@ -7,8 +7,7 @@ ampang_ts <- readRDS("data/ampang_monthly_full_resolved.rds")
 # --- Visual EDA: combined into ONE figure (2x2 grid) ---
 # Panel 1: raw series, Panel 2: seasonal plot, Panel 3: ACF, Panel 4: PACF
 # (all on the differenced series for ACF/PACF, since that's what informs
-# ARIMA/SARIMA order selection - kept here so the whole EDA picture is in
-# one place for the report, even though this script's own model is BATS)
+# ARIMA/SARIMA order selection.
 
 p1 <- autoplot(ampang_ts) +
   ggtitle("Monthly Ridership (2019-2026, MCO-resolved)") +
@@ -31,14 +30,17 @@ grid.arrange(p1, p2, p3, p4, ncol = 2,
 
 # Save the combined figure directly (useful for pasting into the report)
 combined <- arrangeGrob(p1, p2, p3, p4, ncol = 2, top = "LRT Ampang - EDA Summary")
-ggsave(fig("eda_summary.png"), combined, width = 10, height = 7, dpi = 150)
+ggsave(fig("eda", "eda_summary.png"), combined, width = 10, height = 7, dpi = 150)
 
-# STL decomposition kept as its own figure (it's already a stacked 4-panel
-# plot itself - trend/season/remainder/data - combining it into the grid
-# above would be too cramped to read)
+# STL decomposition
 decomp <- stl(ampang_ts, s.window = "periodic", robust = TRUE)
 print(autoplot(decomp) + ggtitle("STL Decomposition"))
-ggsave(fig("stl_decomposition.png"), width = 8, height = 6, dpi = 150)
+ggsave(fig("eda", "stl_decomposition.png"), width = 8, height = 6, dpi = 150)
+
+# Seasonal plot, also saved standalone (p2 above is one quadrant of the
+# 2x2 grid - too small to read on its own in the report; this is the
+# same plot at full size)
+ggsave(fig("eda", "seasonal_plot.png"), p2, width = 8, height = 6, dpi = 150)
 
 # Lag plot (Hyndman-style): scatterplots of the series against itself at
 # lags 1-12. A strong positive linear pattern specifically at lag 12
@@ -47,7 +49,7 @@ ggsave(fig("stl_decomposition.png"), width = 8, height = 6, dpi = 150)
 # shape, not just a bar height. Kept as its own figure (also already a
 # multi-panel grid on its own, same reasoning as STL above).
 print(gglagplot(ampang_ts, lags = 12) + ggtitle("Lag Plot (lags 1-12)"))
-ggsave(fig("lag_plot.png"), width = 8, height = 8, dpi = 150)
+ggsave(fig("eda", "lag_plot.png"), width = 8, height = 8, dpi = 150)
 
 # Seasonal strength (Hyndman's measure)
 seasonal_strength <- max(0, 1 - var(decomp$time.series[, "remainder"]) /
