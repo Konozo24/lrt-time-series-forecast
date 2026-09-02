@@ -71,11 +71,13 @@ scripts/06_ets.R
 scripts/07_bats.R
 scripts/08_group_comparison.R # all four + SNAIVE, one table
 scripts/09_rolling_cv.R       # robustness check (slow — refits everything per fold)
+scripts/10_sensitivity_post_mco.R  # refit on 2022+ only (no reconstructed months)
 ```
 
 Scripts 04–07 are independent of each other and can be run in any order
 after 03. Script 08 refits everything itself, so it can also be run
-standalone after 02.
+standalone after 02. Script 10 reads `output/tables/model_comparison.csv`
+for its side-by-side ranking, so run 08 before it.
 
 ## Output structure
 
@@ -155,6 +157,11 @@ also wins RMSE on the holdout itself.
 All four models beat the SNAIVE benchmark (skill +0.11 to +0.41), and all
 four have white-noise residuals (Ljung-Box p 0.24-0.83, 0-1 of 24 ACF
 lags outside bounds).
+
+22 of the 79 training months are reconstructed rather than observed
+(`02_mco_resolution.R`). `10_sensitivity_post_mco.R` refits the same
+models on the 2022-01 onward subsample, where no observation is
+reconstructed, and reports whether the ranking above survives.
 
 Training MAPE exceeds test MAPE for every model (e.g. ETS 4.94% vs
 3.06%). That is not overfitting - the training window spans the MCO
