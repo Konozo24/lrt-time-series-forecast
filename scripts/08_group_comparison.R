@@ -1,7 +1,9 @@
 # 08_group_comparison.R - combines all four models plus the SNAIVE
 # baseline into one comparison on the same series, same split, same
-# metrics. Run 04-07 first (this script refits them rather than reloading,
-# so the comparison is self-contained and reproducible in one pass).
+# metrics. Refits all four itself rather than reloading anything - it
+# does not read 04_arima.R/05_sarima.R/06_ets.R/07_bats.R's output (those
+# four are standalone scripts, not part of this pipeline; see README) -
+# so this script only needs 02_mco_resolution.R to have run first.
 #
 # SNAIVE is included as the benchmark, not as a fifth "real" model: it
 # has no estimated parameters (it simply repeats the value from the same

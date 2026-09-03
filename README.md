@@ -21,7 +21,9 @@ Four models across two families, plus a benchmark:
 All orders and specifications are chosen by **explicit grid search ranked
 by AICc**, not by `auto.arima()` or the automatic `ets()` search — the
 candidate sets and selection criteria are written out in each script and
-saved to `output/tables/*_grid.csv`.
+printed to the console when it runs (`08_group_comparison.R`'s own
+refits are also grid-searched the same way, independent of 04–07 - see
+"Run order" below for why).
 
 Differencing orders (`d`, `D`) are fixed first by unit-root tests
 (`ndiffs`/`nsdiffs`) and then held constant across each grid. AICc is only
@@ -65,72 +67,95 @@ scripts/00_setup.R            # packages, shared settings and helpers
 scripts/01_data_prep.R        # daily -> monthly, full period
 scripts/02_mco_resolution.R   # resolve (not remove) the MCO window
 scripts/03_eda.R              # decomposition, stationarity, ACF/PACF, lag plot
-scripts/04_arima.R
-scripts/05_sarima.R
-scripts/06_ets.R
-scripts/08_group_comparison.R # all four + SNAIVE, one table
+scripts/08_group_comparison.R # all four models + SNAIVE, one table
 scripts/09_rolling_cv.R       # robustness check (slow — refits everything per fold)
 scripts/10_sensitivity_post_mco.R  # refit on 2022+ only (no reconstructed months)
 ```
 
-Scripts 04–06 are independent of each other and can be run in any order
-after 03. Script 08 refits everything itself (including BATS), so it can
-also be run standalone after 02. Script 10 reads
-`output/tables/model_comparison.csv` for its side-by-side ranking, so run
-08 before it.
+That's the actual shared, dependent pipeline. Script 08 refits all four
+models itself (ARIMA/SARIMA/ETS/BATS, each re-grid-searched inline) and
+does not read anything from 04–07, so it only needs 02 to have run
+first. Script 10 reads `output/tables/model_comparison.csv` for its
+side-by-side ranking, so run 08 before it. Script 09 is independent of
+04–08 the same way 08 is - it re-grid-searches every model per fold.
 
-`scripts/07_bats.R` sits outside this run order on purpose - despite the
-numbered filename, it does **not** `source("00_setup.R")` or depend on
-any other script's output. It's a fully self-contained version of the
-BATS model (own data read, own MCO resolution, own diagnostics), meant
-to be run and submitted on its own. Its BATS config (Box-Cox off, damped
-trend on) is the one `08_group_comparison.R` and `09_rolling_cv.R`
-hardcode - see that script's own grid search for where that choice comes
-from.
+`scripts/04_arima.R`, `05_sarima.R`, `06_ets.R`, and `07_bats.R` sit
+**outside** this run order - despite the numbered filenames, none of
+them `source("00_setup.R")` or depend on any other script's output.
+Each is a fully self-contained, standalone version of one model (own
+data read, own MCO resolution, own EDA, own diagnostics, own
+holdout-and-rolling-CV overfitting checks), meant to be run and
+submitted on its own as one member's individual work. Their selected
+configs are the ones `08_group_comparison.R` and `09_rolling_cv.R`
+hardcode/re-derive - see each script's own grid search for where that
+choice comes from. Because they're independent of each other and of
+08–10, running or skipping any one of them doesn't affect the rest of
+the pipeline.
 
 ## Output structure
 
-Everything written by scripts 03–10 lands in one of two places under
-`output/`. Plots are split by AUDIENCE - which report each one belongs
-in - not just by script:
+Two different sets of scripts write to `output/`, in two different
+styles, because 04–07 are standalone (see "Run order" above) and 00–03/
+08–10 are the shared, dependent pipeline.
+
+**Shared pipeline (00–03, 08–10)** uses two small path helpers defined
+in `00_setup.R` — `fig(category, "name.png")`, `tbl("name.csv")` —
+instead of writing `"output/..."` paths directly:
 
 ```
 output/
 ├── plots/
 │   ├── eda/         EDA panels - decomposition, stationarity context
-│   ├── models/       one forecast + one residuals plot per model - go
-│   │                  in each member's INDIVIDUAL report
 │   └── comparison/   cross-model plots (bar chart, CV stability,
 │                      per-fold, sensitivity) - go in the GROUP report
-└── tables/    grid searches, per-model summaries, comparisons (.csv)
+└── tables/    model_comparison.csv, rolling_cv_*.csv, overfit_checks_cv.csv,
+               sensitivity_post_mco.csv (all from 08/09/10)
 ```
 
-Each script uses two small path helpers defined in `00_setup.R` —
-`fig(category, "name.png")`, `tbl("name.csv")` — instead of writing
-`"output/..."` paths directly, so the destination folder is never
-spelled out by hand in each script. Fitted model objects are not saved
-to disk - each script's `fit_*`/`fc_*` objects are used within that
-same run (plots, diagnostics, the summary CSV) and nothing downstream
-reads a saved model back in, so there is nothing to gain by persisting
-them.
+Fitted model objects are not saved to disk in either style - each
+script's `fit_*`/`fc_*` objects are used within that same run (plots,
+diagnostics, the summary CSV) and nothing downstream reads a saved
+model back in, so there is nothing to gain by persisting them.
+
+**Standalone scripts (04–07)** write their own paths by hand (they
+don't have `00_setup.R` loaded to provide the helpers):
+
+```
+output/
+├── member_arima_results.csv    # one row: holdout + rolling-CV accuracy,
+├── member_sarima_results.csv   #   overfitting checks, residual p-values
+├── member_ets_results.csv      #   - written by 04/05/06/07 respectively
+├── member_bats_results.csv
+└── plots/
+    ├── eda/               stl_decomposition.png, mco_resolution.png -
+    │                       EACH of 04-07 writes to these SAME two
+    │                       filenames (see note below)
+    └── group_summary/     fc_<model>.png, resid_<model>.png - one pair
+                            per standalone script, distinct filenames
+```
+
+Note on the shared filenames: all four of `04_arima.R`–`07_bats.R`
+independently compute and save `plots/eda/stl_decomposition.png` and
+`plots/eda/mco_resolution.png`. This is deliberate, not a bug - each
+script reads the same source data and applies the same MCO
+reconstruction logic, so the four scripts' versions should be
+numerically identical; whichever one you run last is simply the one
+left on disk. If you need more than one standalone script's copy to
+coexist (e.g. comparing two members' output side by side), run them in
+separate `output/` folders.
 
 Key figures to pull into the report:
-- `plots/eda/mco_resolution.png` — original vs. MCO-resolved series
-  (from `02_mco_resolution.R`) - the visual evidence for the whole
-  reconstruction methodology
+- `plots/eda/mco_resolution.png` — original vs. MCO-resolved series - the
+  visual evidence for the whole reconstruction methodology. Produced by
+  `02_mco_resolution.R` in the shared pipeline, or by whichever of
+  `04_arima.R`–`07_bats.R` ran most recently if you're working from a
+  standalone script instead.
 - `plots/eda/eda_summary.png`, `stl_decomposition.png`, `seasonal_plot.png`,
-  `lag_plot.png` — EDA
-  - Note: `07_bats.R` writes its own `stl_decomposition.png` and
-    `mco_resolution.png` to this same folder (it does not use the shared
-    `fig()`/`tbl()` helpers). They should be numerically identical to
-    `02_mco_resolution.R`'s/`03_eda.R`'s versions since both read the same
-    source data and apply the same reconstruction logic, but whichever
-    script runs last overwrites the file - run `07_bats.R` in a separate
-    output folder if you need both scripts' copies to coexist.
-- `plots/models/<model>_forecast.png`, `<model>_residuals.png` — per-model,
-  for individual reports (ARIMA/SARIMA/ETS only; BATS's forecast/residual
-  equivalents are produced separately by `07_bats.R` under
-  `plots/group_summary/*_bats.png`)
+  `lag_plot.png` — EDA (from `03_eda.R`; `stl_decomposition.png` is
+  shared with 04–07 as noted above)
+- `plots/group_summary/fc_<model>.png`, `resid_<model>.png` — one
+  forecast + one residuals plot per model, for each member's individual
+  report (from the standalone script for that model)
 - `plots/comparison/model_comparison_plot.png` — all 4 models + SNAIVE vs.
   actual
 - `plots/comparison/model_comparison_bar.png` — MAPE ranking bar chart

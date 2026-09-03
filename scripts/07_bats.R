@@ -265,7 +265,7 @@ cv_summary <- cv_bats %>%
 print(cv_summary)
 
 results <- data.frame(
-  member        = "bats_standalone",
+  member        = "bats",
   MASE_train    = mase_train,
   RMSE_train    = rmse_train,
   MASE_cv       = cv_summary$mean_MASE,
