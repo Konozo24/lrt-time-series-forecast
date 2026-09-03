@@ -1,2 +1,0 @@
-"model","MAPE_test","RMSE_test","MAE_test","MASE_test","lb_pvalue","n_lags_out","mape_gap_pct","within_10pct"
-"TBATS",2.873,213530,171607,0.187,0.7175,0,54,FALSE

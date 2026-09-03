@@ -1,10 +1,11 @@
 # 05_sarima.R - Model family: ARIMA (seasonal).
 #
 # Role in the comparison: the seasonal member of the ARIMA family. EDA
-# (03_eda.R) confirmed annual seasonality - STL seasonal strength ~0.48
-# and a clear ACF/PACF spike at lag 12 - so seasonal terms are expected
-# to pay for themselves here. The AICc gap against the non-seasonal
-# ARIMA in 04_arima.R is the direct statistical evidence for that.
+# (03_eda.R) checks for annual seasonality - STL seasonal strength and an
+# ACF/PACF spike at lag 12 - see that script's console output for the
+# current value. If confirmed, seasonal terms are expected to pay for
+# themselves here. The AICc gap against the non-seasonal ARIMA in
+# 04_arima.R is the direct statistical evidence for that.
 #
 # NOT using auto.arima(): both the non-seasonal and seasonal orders are
 # selected by an explicit grid search, so the search space and the
@@ -92,8 +93,8 @@ cat("\nOverfitting checks (", g$direction, ")\n")
 cat("  MASE gap  :", round(g$mase_gap * 100, 1), "% | <= 10%  :", g$within_10pct, "\n")
 cat("  RMSE ratio:", round(g$rmse_ratio, 3), "  | <= 1.3x :", g$within_1_3x, "\n")
 cat("  (MAPE gap", round(g$mape_gap * 100, 1),
-    "% reported only - distorted by the level difference between the\n",
-    "  MCO-era training window and the test window, so not part of the rule)\n")
+    "% reported only - not the pass/fail rule; see gap_check() in\n",
+    "  00_setup.R for why)\n")
 
 # ---- Step 5: save in the shared summary shape -------------------------
 summ <- model_summary(label, fit_sarima, fc_sarima, test)

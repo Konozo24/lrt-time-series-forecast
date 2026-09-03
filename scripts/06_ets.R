@@ -98,8 +98,8 @@ cat("\nOverfitting checks (", g$direction, ")\n")
 cat("  MASE gap  :", round(g$mase_gap * 100, 1), "% | <= 10%  :", g$within_10pct, "\n")
 cat("  RMSE ratio:", round(g$rmse_ratio, 3), "  | <= 1.3x :", g$within_1_3x, "\n")
 cat("  (MAPE gap", round(g$mape_gap * 100, 1),
-    "% reported only - distorted by the level difference between the\n",
-    "  MCO-era training window and the test window, so not part of the rule)\n")
+    "% reported only - not the pass/fail rule; see gap_check() in\n",
+    "  00_setup.R for why)\n")
 
 # ---- Step 4: save in the shared summary shape -------------------------
 summ <- model_summary(best_label, fit_ets, fc_ets, test)

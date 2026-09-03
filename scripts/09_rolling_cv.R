@@ -10,6 +10,16 @@
 # Design: expanding training window, 12-month forecast horizon per fold
 # (one full seasonal cycle, matching the main holdout), 5 folds.
 #
+# Origin span: on a longer series this project used a 16-month span (4
+# folds of headroom before the final 79-month training set). On this
+# 55-month series that span would put the smallest fold's training window
+# at 27 months = 2.25 seasonal cycles - too little for SARIMA/BATS to
+# estimate seasonal terms reliably, and some fits are likely to fail via
+# tryCatch and silently drop from that fold's average. The span here is
+# narrowed to 12 months (one seasonal cycle) with a 3-month step, so the
+# smallest fold trains on 31 months = 2.58 cycles instead - still tight,
+# but the folds this produces are more likely to actually fit.
+#
 # RUNTIME WARNING: this refits every model at every origin, and BATS is
 # slow because it runs its own internal component search on each fit.
 # Expect several minutes on free Posit Cloud. Reduce the number of folds
@@ -21,7 +31,7 @@ y <- load_series()
 n <- length(y)
 h <- H                      # 12-month horizon per fold
 
-origins <- seq(n - h - 16, n - h, by = 4)   # 5 expanding-window origins
+origins <- seq(n - h - 12, n - h, by = 3)   # 5 expanding-window origins
 cat("Folds:", length(origins), "| training sizes:", paste(origins, collapse = ", "), "\n\n")
 
 cv <- data.frame()
@@ -89,7 +99,10 @@ for (ts_size in origins) {
   rE <- rE[order(rE$AICc), ]
   m_ets <- metrics_of(forecast(eF[[rE$key[1]]], h = h)$mean)
 
-  # BATS - config as selected in 07_bats.R (Box-Cox off, damped trend on)
+  # BATS - PLACEHOLDER config (Box-Cox off, damped trend on), carried over
+  # from an earlier dataset. NOT YET VALIDATED for this series - run
+  # 07_bats.R first and update these two flags to match its AIC-best
+  # config before trusting this fold's BATS numbers.
   m_tb <- metrics_of(forecast(bats(tr, use.box.cox = FALSE, use.trend = TRUE,
                                     use.damped.trend = TRUE), h = h)$mean)
 

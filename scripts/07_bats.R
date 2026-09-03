@@ -14,9 +14,10 @@
 #
 # The trade-off, stated honestly: BATS estimates a full set of 12 seasonal
 # states where TBATS would use k <= 6 Fourier pairs, so BATS spends more
-# parameters on a 79-observation training window. Whether that costs
-# accuracy is exactly what the AIC comparison below and the holdout in
-# 08_group_comparison.R are there to answer.
+# parameters on a 43-observation training window - a tighter budget than
+# this project has used before. Whether that costs accuracy is exactly
+# what the AIC comparison below and the holdout in 08_group_comparison.R
+# are there to answer.
 #
 # Role in the comparison: an extended exponential-smoothing state-space
 # model, tested against the conventional ETS in 06_ets.R. BATS adds to
@@ -25,9 +26,11 @@
 # trend; whether any of these is actually needed here is tested rather
 # than assumed.
 #
-# NOT relying on a single automatic fit: the Box-Cox and damped-trend
-# components are switched on and off explicitly across four candidate
-# configurations, so their contribution is visible in the output.
+# LIVE GRID, not hardcoded: this project previously hardcoded the winning
+# config once its correct value was known for an earlier dataset. That
+# assumption does not carry over to a different series - the AIC-best
+# config has to be re-established here before it can be trusted anywhere
+# else (08, 09 both need to match whatever this script finds).
 
 source("scripts/00_setup.R")
 
@@ -35,7 +38,7 @@ y  <- load_series()
 sp <- split_series(y)
 train <- sp$train; test <- sp$test
 
-# ---- Step 1: explicit component configurations ------------------------
+# ---- Explicit component configurations ----------------------------------
 configs <- list(
   list(label = "BATS(box-cox, damped)",      bc = TRUE,  damped = TRUE),
   list(label = "BATS(box-cox, undamped)",    bc = TRUE,  damped = FALSE),
@@ -54,7 +57,7 @@ for (cfg in configs) {
   )
   if (!is.null(fit)) {
     fits[[cfg$label]] <- fit
-    fc  <- forecast(fit, h = H)
+    fc <- forecast(fit, h = H)
     results <- rbind(results, data.frame(
       config    = cfg$label,
       AIC       = fit$AIC,
@@ -74,18 +77,17 @@ write.csv(results, tbl("bats_grid.csv"), row.names = FALSE)
 best_label <- results$config[1]
 cat("\nSelected (by AIC):", best_label, "\n")
 
-# Whether AIC and holdout MAPE agree is worth reporting either way: if the
-# AIC-best configuration is also the most accurate out of sample, no
-# trade-off has to be argued; if they disagree, say so and keep the AIC
-# choice, because switching to the MAPE-best one would leak the test set.
 if (which.min(results$MAPE_test) != 1) {
   cat("NOTE: AIC and holdout MAPE disagree - AIC-best is",
       best_label, "but MAPE-best is",
       results$config[which.min(results$MAPE_test)],
       "\n  Keeping the AIC choice (selecting on test MAPE would leak the holdout).\n")
 }
+cat("\nACTION: copy this config into the hardcoded bats() calls in",
+    "08_group_comparison.R and 09_rolling_cv.R if it differs from what",
+    "they currently use.\n")
 
-# ---- Step 2: refit selected config, forecast, evaluate ----------------
+# ---- Refit selected config, forecast, evaluate ---------------------------
 fit_bats <- fits[[best_label]]
 print(fit_bats)
 
@@ -98,7 +100,7 @@ ggsave(fig("models", "bats_forecast.png"), p_fc, width = 8, height = 5, dpi = 15
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_bats, test))
 
-# ---- Step 3: residual diagnostics -------------------------------------
+# ---- Residual diagnostics -------------------------------------------------
 cat("\n--- Residual diagnostics ---\n")
 checkresiduals(fit_bats)
 dev.copy(png, filename = fig("models", "bats_residuals.png"), width = 900, height = 700, res = 130)
@@ -118,10 +120,10 @@ cat("\nOverfitting checks (", g$direction, ")\n")
 cat("  MASE gap  :", round(g$mase_gap * 100, 1), "% | <= 10%  :", g$within_10pct, "\n")
 cat("  RMSE ratio:", round(g$rmse_ratio, 3), "  | <= 1.3x :", g$within_1_3x, "\n")
 cat("  (MAPE gap", round(g$mape_gap * 100, 1),
-    "% reported only - distorted by the level difference between the\n",
-    "  MCO-era training window and the test window, so not part of the rule)\n")
+    "% reported only - not the pass/fail rule; see gap_check() in\n",
+    "  00_setup.R for why)\n")
 
-# ---- Step 4: save in the shared summary shape -------------------------
+# ---- Save in the shared summary shape -------------------------------------
 summ <- model_summary("BATS", fit_bats, fc_bats, test)
 print(summ)
 write.csv(summ, tbl("summary_bats.csv"), row.names = FALSE)
