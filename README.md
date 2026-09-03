@@ -15,7 +15,7 @@ Four models across two families, plus a benchmark:
 | `04_arima.R` | ARIMA(p,d,q) | ARIMA |
 | `05_sarima.R` | SARIMA(p,d,q)(P,D,Q)[12] | ARIMA |
 | `06_ets.R` | ETS(Error,Trend,Seasonal) | Exponential smoothing |
-| `07_bats_standalone.R` | BATS | Exponential smoothing |
+| `07_bats.R` | BATS | Exponential smoothing |
 | `08_group_comparison.R` | SNAIVE | Benchmark (no estimated parameters) |
 
 All orders and specifications are chosen by **explicit grid search ranked
@@ -79,13 +79,14 @@ also be run standalone after 02. Script 10 reads
 `output/tables/model_comparison.csv` for its side-by-side ranking, so run
 08 before it.
 
-`scripts/07_bats_standalone.R` is **not** part of this numbered pipeline
-- it's a self-contained version of the BATS model (own data read, own
-MCO resolution, own diagnostics) with no `source()`/`readRDS()`
-dependency on any other script here, meant to be run and submitted on
-its own. Its BATS config (Box-Cox off, damped trend on) is the one
-`08_group_comparison.R` and `09_rolling_cv.R` hardcode - see that
-script's own grid search for where that choice comes from.
+`scripts/07_bats.R` sits outside this run order on purpose - despite the
+numbered filename, it does **not** `source("00_setup.R")` or depend on
+any other script's output. It's a fully self-contained version of the
+BATS model (own data read, own MCO resolution, own diagnostics), meant
+to be run and submitted on its own. Its BATS config (Box-Cox off, damped
+trend on) is the one `08_group_comparison.R` and `09_rolling_cv.R`
+hardcode - see that script's own grid search for where that choice comes
+from.
 
 ## Output structure
 
@@ -119,11 +120,17 @@ Key figures to pull into the report:
   reconstruction methodology
 - `plots/eda/eda_summary.png`, `stl_decomposition.png`, `seasonal_plot.png`,
   `lag_plot.png` — EDA
+  - Note: `07_bats.R` writes its own `stl_decomposition.png` and
+    `mco_resolution.png` to this same folder (it does not use the shared
+    `fig()`/`tbl()` helpers). They should be numerically identical to
+    `02_mco_resolution.R`'s/`03_eda.R`'s versions since both read the same
+    source data and apply the same reconstruction logic, but whichever
+    script runs last overwrites the file - run `07_bats.R` in a separate
+    output folder if you need both scripts' copies to coexist.
 - `plots/models/<model>_forecast.png`, `<model>_residuals.png` — per-model,
-  for individual reports (ARIMA/SARIMA/ETS only; BATS's equivalents are
-  produced separately by `07_bats_standalone.R` under
-  `plots/group_summary/*_bats.png`, since that script does not use the
-  shared `fig()`/`tbl()` helpers)
+  for individual reports (ARIMA/SARIMA/ETS only; BATS's forecast/residual
+  equivalents are produced separately by `07_bats.R` under
+  `plots/group_summary/*_bats.png`)
 - `plots/comparison/model_comparison_plot.png` — all 4 models + SNAIVE vs.
   actual
 - `plots/comparison/model_comparison_bar.png` — MAPE ranking bar chart

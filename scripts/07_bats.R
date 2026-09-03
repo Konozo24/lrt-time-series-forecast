@@ -1,4 +1,4 @@
-# 07_bats_standalone.R - STANDALONE script.
+# 07_bats.R - STANDALONE script.
 # Topic: LRT Ampang line monthly ridership (trips/month), data.gov.my
 # Daily Public Transport Ridership dataset (Prasarana Malaysia + Ministry
 # of Transport, CC BY 4.0), 2019-01 to 2026-07 (91 months). SDG 11
@@ -145,10 +145,6 @@ y <- ampang_resolved   # series used for everything from here on
 
 
 # EDA
-p_series <- autoplot(y) + ggtitle("LRT Ampang monthly ridership (MCO-resolved)") +
-  ylab("Trips/month") + scale_y_millions()
-print(p_series)
-
 p_stl <- autoplot(stl(y, s.window = "periodic", robust = TRUE)) +
   ggtitle("STL decomposition")
 print(p_stl)
@@ -287,12 +283,13 @@ print(results)
 
 
 # outputs
+dir.create("output/plots/eda", recursive = TRUE, showWarnings = FALSE)
 dir.create("output/plots/group_summary", recursive = TRUE, showWarnings = FALSE)
 write.csv(results, "output/member_bats_results.csv", row.names = FALSE)
 
-ggsave("output/plots/group_summary/stl_bats_decomposition.png", p_stl,
+ggsave("output/plots/eda/stl_decomposition.png", p_stl,
        width = 9, height = 6, dpi = 150)
-ggsave("output/plots/group_summary/mco_resolution_bats.png", p_mco,
+ggsave("output/plots/eda/mco_resolution.png", p_mco,
        width = 9, height = 5, dpi = 150)
 
 # forecast vs actual, zoomed to the last 3 years

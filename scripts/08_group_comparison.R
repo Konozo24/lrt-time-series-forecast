@@ -82,9 +82,9 @@ ets_res <- ets_res[order(ets_res$AICc), ]
 fits[["ETS"]] <- ets_fits[[ets_res$key[1]]]
 
 # Config is the one selected by AIC in the BATS grid search (Box-Cox
-# off, damped trend on) - see scripts/07_bats_standalone.R for the
-# 4-config grid this was chosen from. Do not change these flags without
-# also updating 07_bats_standalone.R and 09_rolling_cv.R to match.
+# off, damped trend on) - see scripts/07_bats.R for the 4-config grid
+# this was chosen from. Do not change these flags without also updating
+# 07_bats.R and 09_rolling_cv.R to match.
 fits[["BATS"]] <- bats(train, use.box.cox = FALSE, use.trend = TRUE,
                        use.damped.trend = TRUE)
 
