@@ -1,0 +1,6 @@
+"model","MAPE_test","RMSE_test","MAE_test","MASE_test","RMSE_train","MASE_train","fitdf","lb_pvalue_12","lb_pvalue_16","lb_pass","n_lags_out_12","n_lags_out_16","mase_gap_pct","within_10pct","rmse_ratio","within_1_3x","direction","mape_gap_pct","skill_vs_snaive"
+"ETS",2.898,246123,178010,0.198,283595,0.241,0,0.104,0.1281,TRUE,2,2,22,FALSE,0.868,TRUE,"train worse",68.5,0.445
+"BATS",3.302,226856,196828,0.219,261769,0.203,0,0.185,0.2229,TRUE,1,1,7.3,TRUE,0.867,TRUE,"test worse",24.1,0.367
+"ARIMA",4.616,366152,267110,0.297,341998,0.291,5,0.0102,0.0329,FALSE,1,1,2,TRUE,1.071,TRUE,"test worse",32,0.115
+"SARIMA",4.711,317058,278865,0.31,317730,0.254,4,0.4118,0.3875,TRUE,1,1,18.1,FALSE,0.998,TRUE,"test worse",9.7,0.097
+"SNAIVE",5.218,396504,322437,0.358,1035508,1,0,0,0,FALSE,10,10,179.2,FALSE,0.383,TRUE,"train worse",317.7,0

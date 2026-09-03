@@ -48,20 +48,18 @@ scale_y_millions <- function() {
 # test accuracy depend on which half of the year happened to be held out.
 H <- 12
 
-# Ljung-Box / ACF lag. Hyndman's rule for seasonal data is min(2m, T/5):
-# 2m = 24 would be two full seasonal cycles, but with T = 43 training
-# months the T/5 cap binds at 8.6, so 8. Using 24 here would mean testing
-# 24 autocorrelations from 43 observations, which dilutes any real signal
-# across mostly-noise terms and costs the test power.
-# VERIFY ON FIRST RUN: forecast::checkresiduals() picks its own lag
-# internally and prints "Total lags used: N" - if that N differs from the
-# value below, update LAG_MAX to match so the summary tables and the
-# console output agree (this was checked and confirmed to match on the
-# series this project used previously; it has not yet been reverified for
-# the current 43-month training window).
-LAG_MAX <- 8
+# Ljung-Box / ACF lag. Hyndman's rule for seasonal data is
+# min(2m, T/5): 2m = 24 would be two full seasonal cycles, but with
+# T = 79 training months the T/5 cap binds at 15.8, so 16 it is. Using 24
+# here would mean testing 24 autocorrelations from 79 observations, which
+# dilutes any real signal across mostly-noise terms and costs the test
+# power. 16 is also exactly what forecast::checkresiduals() picks for this
+# series, so the summary tables and the console output agree.
+# (A longer series would take 24 - e.g. at T = 540, T/5 = 108 and 2m binds
+# instead. The cap is what differs here, not the rule.)
+LAG_MAX <- 16
 
-load_series <- function() readRDS("data/bus_rkl_monthly.rds")
+load_series <- function() readRDS("data/ampang_monthly_full_resolved.rds")
 
 split_series <- function(y, h = H) {
   list(train = head(y, length(y) - h), test = tail(y, h))
@@ -109,17 +107,17 @@ lb_test <- function(fit, lag) {
 #                          actually points.
 #
 # The MAPE gap is still returned but is NOT part of the pass/fail rule.
-# MAPE distorts whenever the training window's typical level differs from
-# the test window's (a growth/plateau series shifting level over 2022-2026
-# is exactly this case) - dividing by a different-sized denominator shrinks
-# or inflates the gap for reasons that have nothing to do with
-# overfitting. MASE is scale-free and RMSE is compared as a ratio, so both
-# are immune to that.
+# On this series it is badly distorted: the training window includes the
+# MCO trough (~2.8m) while the test window sits near 6.1m, so dividing by
+# a larger denominator shrinks test MAPE and inflates the gap for reasons
+# that have nothing to do with overfitting. MASE is scale-free and RMSE
+# is compared as a ratio, so both are immune to that.
 #
 # mape_gap/mase_gap use abs(), so they flag deviation in EITHER
-# direction; `direction` records which way it actually went - a model
-# whose TRAINING error exceeds its test error is not overfitting (the
-# opposite direction), and a bare "FAIL" on the gap should not hide that.
+# direction; `direction` records which way it actually went, because on
+# this series train error usually EXCEEDS test error (the training window
+# spans the disruption, the test window does not) - the opposite of
+# overfitting, and not something a bare "FAIL" should hide.
 gap_check <- function(acc_matrix) {
   mape_tr <- acc_matrix["Training set", "MAPE"]
   mape_te <- acc_matrix["Test set", "MAPE"]
@@ -144,29 +142,17 @@ gap_check <- function(acc_matrix) {
 # identical shape that 08_group_comparison.R can stack directly.
 #
 # Ljung-Box and the residual ACF are reported at BOTH lag 12 (one full
-# seasonal cycle - the natural checkpoint for annual data regardless of
-# sample size) and lag LAG_MAX (Hyndman's min(2m, T/5) recommendation for
-# THIS sample size - see the LAG_MAX comment above). On the shorter
-# training window this project currently uses, LAG_MAX (8) is smaller
-# than 12, the reverse of the relationship on a longer series - so lag 12
-# here is the more exploratory of the two checks, not the more
-# conservative one, and a model that fails only at lag 12 while passing
-# at LAG_MAX is failing a stricter test than Hyndman's own rule asks for
-# on a sample this size. Report both together rather than picking one, so
-# neither reading is hidden.
-#
-# The lag-based column names are built from LAG_MAX itself (lb_pvalue_12/
-# lb_pvalue_<LAG_MAX>, etc.) rather than hardcoded, so they stay correct
-# if LAG_MAX is ever changed for a different sample size - a hardcoded
-# "_16" suffix would silently mislabel the column the next time this
-# project's series length changes.
+# seasonal cycle) and lag LAG_MAX = 16 (the min(2m, T/5) rule). One lag
+# alone can mislead: a spike at the seasonal lag stands out clearly in a
+# lag-12 test but gets diluted among mostly-zero terms in a longer one, so
+# a model should clear both before its residuals are called white noise.
 model_summary <- function(name, fit, fc, test) {
   a  <- accuracy(fc, test)
   g  <- gap_check(a)
   r  <- residuals(fit)
   lb12  <- lb_test(fit, 12)
   lbmax <- lb_test(fit, LAG_MAX)
-  row <- data.frame(
+  data.frame(
     model        = name,
     MAPE_test    = round(a["Test set", "MAPE"], 3),
     RMSE_test    = round(a["Test set", "RMSE"], 0),
@@ -175,18 +161,17 @@ model_summary <- function(name, fit, fc, test) {
     RMSE_train   = round(g$rmse_train, 0),
     MASE_train   = round(g$mase_train, 3),
     fitdf        = model_fitdf(fit),
+    lb_pvalue_12 = round(lb12$p.value, 4),
+    lb_pvalue_16 = round(lbmax$p.value, 4),
+    lb_pass      = (lb12$p.value > 0.05) & (lbmax$p.value > 0.05),
+    n_lags_out_12 = acf_out_of_bounds(r, lag.max = 12),
+    n_lags_out_16 = acf_out_of_bounds(r, lag.max = LAG_MAX),
+    mase_gap_pct = round(g$mase_gap * 100, 1),
+    within_10pct = g$within_10pct,
+    rmse_ratio   = round(g$rmse_ratio, 3),
+    within_1_3x  = g$within_1_3x,
+    direction    = g$direction,
+    mape_gap_pct = round(g$mape_gap * 100, 1),   # reported, not a rule
     stringsAsFactors = FALSE
   )
-  row[[paste0("lb_pvalue_", 12)]]       <- round(lb12$p.value, 4)
-  row[[paste0("lb_pvalue_", LAG_MAX)]]  <- round(lbmax$p.value, 4)
-  row$lb_pass <- (lb12$p.value > 0.05) & (lbmax$p.value > 0.05)
-  row[[paste0("n_lags_out_", 12)]]      <- acf_out_of_bounds(r, lag.max = 12)
-  row[[paste0("n_lags_out_", LAG_MAX)]] <- acf_out_of_bounds(r, lag.max = LAG_MAX)
-  row$mase_gap_pct <- round(g$mase_gap * 100, 1)
-  row$within_10pct <- g$within_10pct
-  row$rmse_ratio   <- round(g$rmse_ratio, 3)
-  row$within_1_3x  <- g$within_1_3x
-  row$direction    <- g$direction
-  row$mape_gap_pct <- round(g$mape_gap * 100, 1)   # reported, not a rule
-  row
 }

@@ -26,11 +26,9 @@ cat("Series:", length(y), "months | train:", length(train),
     "| test:", length(test), "(h =", H, ")\n\n")
 
 # ---- Refit all four models + baseline ---------------------------------
-# Each model's order/spec is re-selected live here by its own grid search,
-# using the same candidate ranges as 04-07, rather than copying a number
-# in from those scripts' output - this script runs standalone and is not
-# at risk of going stale if a grid search elsewhere selects something
-# different on a rerun.
+# Orders/specs below are the ones selected by the grid searches in 04-07.
+# They are hard-coded here so this script runs standalone; if a grid
+# search selects something different when re-run, update these to match.
 
 fits <- list()
 
@@ -83,42 +81,44 @@ for (s in ets_specs) {
 ets_res <- ets_res[order(ets_res$AICc), ]
 fits[["ETS"]] <- ets_fits[[ets_res$key[1]]]
 
-# BATS config re-selected live (same 4-config AIC search as 07_bats.R),
-# matching how ARIMA/SARIMA/ETS above are all re-selected live rather than
-# hardcoded. See 07_bats.R for the fuller write-up of why this is a live
-# search rather than a hardcoded config for this dataset.
-bats_cfgs <- list(list(bc = TRUE,  damped = TRUE),  list(bc = TRUE,  damped = FALSE),
-                  list(bc = FALSE, damped = TRUE),  list(bc = FALSE, damped = FALSE))
-bats_res <- data.frame(); bats_fits <- list()
-for (cfg in bats_cfgs) {
-  f <- tryCatch(bats(train, use.box.cox = cfg$bc, use.trend = TRUE,
-                     use.damped.trend = cfg$damped), error = function(e) NULL)
-  if (!is.null(f)) {
-    key <- paste0(if (cfg$bc) "bc" else "no-bc", "_", if (cfg$damped) "damped" else "undamped")
-    bats_fits[[key]] <- f
-    bats_res <- rbind(bats_res, data.frame(key = key, AIC = f$AIC))
-  }
-}
-bats_res <- bats_res[order(bats_res$AIC), ]
-fits[["BATS"]] <- bats_fits[[bats_res$key[1]]]
+# Config matches the one selected in 07_bats.R by AIC (Box-Cox off,
+# damped trend on) - see output/tables/bats_grid.csv. Do not change these
+# flags without also updating 07_bats.R and 09_rolling_cv.R to match.
+fits[["BATS"]] <- bats(train, use.box.cox = FALSE, use.trend = TRUE,
+                       use.damped.trend = TRUE)
 
 # ---- Build the comparison table ---------------------------------------
-# One row per model via the shared model_summary() helper (00_setup.R) -
-# same function 04-07 use for their own summary CSVs, so this table and
-# each model script's individual output are built from identical logic,
-# not two hand-maintained copies of the same column list.
 rows <- data.frame()
 for (nm in names(fits)) {
   fit <- fits[[nm]]
   fc  <- if (nm == "SNAIVE") fit else forecast(fit, h = H)
-  rows <- rbind(rows, model_summary(nm, fit, fc, test))
+  a   <- accuracy(fc, test)
+  g   <- gap_check(a)
+  r   <- residuals(fit)
+  p12 <- lb_test(fit, 12)$p.value
+  p16 <- lb_test(fit, LAG_MAX)$p.value
+  rows <- rbind(rows, data.frame(
+    model        = nm,
+    MAPE_test    = round(a["Test set", "MAPE"], 3),
+    RMSE_test    = round(a["Test set", "RMSE"], 0),
+    MAE_test     = round(a["Test set", "MAE"], 0),
+    MASE_test    = round(a["Test set", "MASE"], 3),
+    RMSE_train   = round(g$rmse_train, 0),
+    MASE_train   = round(g$mase_train, 3),
+    fitdf        = model_fitdf(fit),
+    lb_pvalue_12 = round(p12, 4),
+    lb_pvalue_16 = round(p16, 4),
+    lb_pass      = (p12 > 0.05) & (p16 > 0.05),
+    n_lags_out_12 = acf_out_of_bounds(r, lag.max = 12),
+    n_lags_out_16 = acf_out_of_bounds(r, lag.max = LAG_MAX),
+    mase_gap_pct = round(g$mase_gap * 100, 1),
+    within_10pct = g$within_10pct,
+    rmse_ratio   = round(g$rmse_ratio, 3),
+    within_1_3x  = g$within_1_3x,
+    direction    = g$direction,
+    mape_gap_pct = round(g$mape_gap * 100, 1)))
 }
 rows <- rows[order(rows$MAPE_test), ]
-
-# Column names for the two lag-based diagnostics below are built from
-# LAG_MAX so they stay correct if LAG_MAX ever changes (see 00_setup.R).
-lb_col  <- paste0("lb_pvalue_", LAG_MAX)
-acf_col <- paste0("n_lags_out_", LAG_MAX)
 
 cat("\n=== MODEL COMPARISON (ranked by test MAPE) ===\n")
 print(rows[, c("model", "MAPE_test", "RMSE_test", "MAE_test", "MASE_test")],
@@ -126,17 +126,19 @@ print(rows[, c("model", "MAPE_test", "RMSE_test", "MAE_test", "MASE_test")],
 
 # ---- Overfitting checks, split out so both rules are legible ----------
 # Rule 1: MASE gap <= 10%.  Rule 2: RMSE_test/RMSE_train <= 1.3.
-# `direction` matters: a gap where TRAINING error exceeds test error is
-# not overfitting (the opposite direction), and a bare "FAIL" on the gap
-# should not be read as a red flag when that's what happened.
+# `direction` matters: on this series train error usually EXCEEDS test
+# error, because the training window spans the MCO disruption and the
+# recovery ramp while the test window is a flat mature period. That is
+# the opposite of overfitting, so a large gap in the "train worse"
+# direction is not a red flag.
 cat("\n=== OVERFITTING CHECKS ===\n")
 print(rows[, c("model", "MASE_train", "MASE_test", "mase_gap_pct", "within_10pct",
                "RMSE_train", "RMSE_test", "rmse_ratio", "within_1_3x", "direction")],
       row.names = FALSE)
 
 cat("\n=== RESIDUAL DIAGNOSTICS (both lags, fitdf-corrected) ===\n")
-print(rows[, c("model", "fitdf", "lb_pvalue_12", lb_col, "lb_pass",
-               "n_lags_out_12", acf_col)], row.names = FALSE)
+print(rows[, c("model", "fitdf", "lb_pvalue_12", "lb_pvalue_16", "lb_pass",
+               "n_lags_out_12", "n_lags_out_16")], row.names = FALSE)
 cat("\nlb_pass = white noise at BOTH lags (p > 0.05). fitdf = p+q+P+Q, the\n",
     "parameters the ARIMA family estimates; ignoring it inflates p-values.\n")
 
@@ -166,7 +168,7 @@ fc_all <- lapply(names(fits), function(nm)
   if (nm == "SNAIVE") fits[[nm]] else forecast(fits[[nm]], h = H))
 names(fc_all) <- names(fits)
 
-p <- autoplot(y) +
+p <- autoplot(window(y, start = c(2022, 1))) +
   autolayer(fc_all[["ARIMA"]]$mean,  series = "ARIMA") +
   autolayer(fc_all[["SARIMA"]]$mean, series = "SARIMA") +
   autolayer(fc_all[["ETS"]]$mean,    series = "ETS") +

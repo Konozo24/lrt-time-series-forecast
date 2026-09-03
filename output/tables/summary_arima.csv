@@ -1,0 +1,2 @@
+"model","MAPE_test","RMSE_test","MAE_test","MASE_test","RMSE_train","MASE_train","fitdf","lb_pvalue_12","lb_pvalue_16","lb_pass","n_lags_out_12","n_lags_out_16","mase_gap_pct","within_10pct","rmse_ratio","within_1_3x","direction","mape_gap_pct"
+"ARIMA(2,1,3)",4.616,366152,267110,0.297,341998,0.291,5,0.0102,0.0329,FALSE,1,1,2,TRUE,1.071,TRUE,"test worse",32

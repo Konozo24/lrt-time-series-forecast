@@ -1,0 +1,2 @@
+"model","MAPE_test","RMSE_test","MAE_test","MASE_test","RMSE_train","MASE_train","fitdf","lb_pvalue_12","lb_pvalue_16","lb_pass","n_lags_out_12","n_lags_out_16","mase_gap_pct","within_10pct","rmse_ratio","within_1_3x","direction","mape_gap_pct"
+"ETS(A,N,A)",2.898,246123,178010,0.198,283595,0.241,0,0.104,0.1281,TRUE,2,2,22,FALSE,0.868,TRUE,"train worse",68.5
