@@ -89,7 +89,7 @@ for (ts_size in origins) {
   rE <- rE[order(rE$AICc), ]
   m_ets <- metrics_of(forecast(eF[[rE$key[1]]], h = h)$mean)
 
-  # BATS - config as selected in 07_bats.R (Box-Cox off, damped trend on)
+  # BATS - config as selected by AIC in 07_bats_standalone.R (Box-Cox off, damped trend on)
   m_tb <- metrics_of(forecast(bats(tr, use.box.cox = FALSE, use.trend = TRUE,
                                     use.damped.trend = TRUE), h = h)$mean)
 

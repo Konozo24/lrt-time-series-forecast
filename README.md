@@ -15,7 +15,7 @@ Four models across two families, plus a benchmark:
 | `04_arima.R` | ARIMA(p,d,q) | ARIMA |
 | `05_sarima.R` | SARIMA(p,d,q)(P,D,Q)[12] | ARIMA |
 | `06_ets.R` | ETS(Error,Trend,Seasonal) | Exponential smoothing |
-| `07_bats.R` | BATS | Exponential smoothing |
+| `07_bats_standalone.R` | BATS | Exponential smoothing |
 | `08_group_comparison.R` | SNAIVE | Benchmark (no estimated parameters) |
 
 All orders and specifications are chosen by **explicit grid search ranked
@@ -68,16 +68,24 @@ scripts/03_eda.R              # decomposition, stationarity, ACF/PACF, lag plot
 scripts/04_arima.R
 scripts/05_sarima.R
 scripts/06_ets.R
-scripts/07_bats.R
 scripts/08_group_comparison.R # all four + SNAIVE, one table
 scripts/09_rolling_cv.R       # robustness check (slow — refits everything per fold)
 scripts/10_sensitivity_post_mco.R  # refit on 2022+ only (no reconstructed months)
 ```
 
-Scripts 04–07 are independent of each other and can be run in any order
-after 03. Script 08 refits everything itself, so it can also be run
-standalone after 02. Script 10 reads `output/tables/model_comparison.csv`
-for its side-by-side ranking, so run 08 before it.
+Scripts 04–06 are independent of each other and can be run in any order
+after 03. Script 08 refits everything itself (including BATS), so it can
+also be run standalone after 02. Script 10 reads
+`output/tables/model_comparison.csv` for its side-by-side ranking, so run
+08 before it.
+
+`scripts/07_bats_standalone.R` is **not** part of this numbered pipeline
+- it's a self-contained version of the BATS model (own data read, own
+MCO resolution, own diagnostics) with no `source()`/`readRDS()`
+dependency on any other script here, meant to be run and submitted on
+its own. Its BATS config (Box-Cox off, damped trend on) is the one
+`08_group_comparison.R` and `09_rolling_cv.R` hardcode - see that
+script's own grid search for where that choice comes from.
 
 ## Output structure
 
@@ -112,7 +120,10 @@ Key figures to pull into the report:
 - `plots/eda/eda_summary.png`, `stl_decomposition.png`, `seasonal_plot.png`,
   `lag_plot.png` — EDA
 - `plots/models/<model>_forecast.png`, `<model>_residuals.png` — per-model,
-  for individual reports
+  for individual reports (ARIMA/SARIMA/ETS only; BATS's equivalents are
+  produced separately by `07_bats_standalone.R` under
+  `plots/group_summary/*_bats.png`, since that script does not use the
+  shared `fig()`/`tbl()` helpers)
 - `plots/comparison/model_comparison_plot.png` — all 4 models + SNAIVE vs.
   actual
 - `plots/comparison/model_comparison_bar.png` — MAPE ranking bar chart
