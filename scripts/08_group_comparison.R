@@ -28,65 +28,35 @@ cat("Series:", length(y), "months | train:", length(train),
     "| test:", length(test), "(h =", H, ")\n\n")
 
 # ---- Refit all four models + baseline ---------------------------------
-# Orders/specs below are the ones selected by the grid searches in 04-07.
-# They are hard-coded here so this script runs standalone; if a grid
-# search selects something different when re-run, update these to match.
+# All four configs below are hard-coded to the winner of each model's own
+# grid search (run in 04_arima.R/05_sarima.R/06_ets.R/07_bats.R against
+# this same 79-month training set) rather than re-searched here. This
+# keeps every run fast and the comparison table stable and reproducible.
+# Trade-off, stated honestly: if the source data changes (e.g. a new
+# month is appended), these are NOT re-verified as still AICc-best - the
+# corresponding standalone script must be re-run and this block updated
+# to match. Do not change these without also updating 07_bats.R,
+# 04_arima.R, 05_sarima.R, 06_ets.R, and 09_rolling_cv.R together.
 
 fits <- list()
 
 fits[["SNAIVE"]] <- snaive(train, h = H)
 
-d_ns <- ndiffs(train, test = "kpss")
-arima_grid <- expand.grid(p = 0:3, q = 0:3)
-arima_res <- data.frame()
-for (i in seq_len(nrow(arima_grid))) {
-  f <- tryCatch(Arima(train, order = c(arima_grid$p[i], d_ns, arima_grid$q[i]),
-                      include.drift = (d_ns > 0)), error = function(e) NULL)
-  if (!is.null(f)) arima_res <- rbind(arima_res,
-      data.frame(p = arima_grid$p[i], q = arima_grid$q[i], AICc = f$aicc))
-}
-arima_res <- arima_res[order(arima_res$AICc), ]
-fits[["ARIMA"]] <- Arima(train, order = c(arima_res$p[1], d_ns, arima_res$q[1]),
-                         include.drift = (d_ns > 0))
+# ARIMA(2,1,3) with drift - winner of the {p:0-3, q:0-3} grid at d=1
+# (04_arima.R). fitdf = p+q = 5.
+fits[["ARIMA"]] <- Arima(train, order = c(2, 1, 3), include.drift = TRUE)
 
-D_s <- nsdiffs(train)
-d_s <- ndiffs(if (D_s > 0) diff(train, lag = 12) else train, test = "kpss")
-sar_grid <- expand.grid(p = 0:2, q = 0:2, P = 0:1, Q = 0:1)
-sar_res <- data.frame()
-for (i in seq_len(nrow(sar_grid))) {
-  f <- tryCatch(Arima(train, order = c(sar_grid$p[i], d_s, sar_grid$q[i]),
-                      seasonal = list(order = c(sar_grid$P[i], D_s, sar_grid$Q[i]),
-                                      period = 12)),
-                error = function(e) NULL)
-  if (!is.null(f)) sar_res <- rbind(sar_res, data.frame(
-      p = sar_grid$p[i], q = sar_grid$q[i],
-      P = sar_grid$P[i], Q = sar_grid$Q[i], AICc = f$aicc))
-}
-sar_res <- sar_res[order(sar_res$AICc), ]
-fits[["SARIMA"]] <- Arima(train,
-  order    = c(sar_res$p[1], d_s, sar_res$q[1]),
-  seasonal = list(order = c(sar_res$P[1], D_s, sar_res$Q[1]), period = 12))
+# SARIMA(0,1,2)(1,0,1)[12] - winner of the {p,q:0-2, P,Q:0-1} grid at
+# d=1, D=0 (05_sarima.R). fitdf = p+q+P+Q = 4.
+fits[["SARIMA"]] <- Arima(train, order = c(0, 1, 2),
+  seasonal = list(order = c(1, 0, 1), period = 12))
 
-ets_specs <- list(c("ANN", NA), c("AAN", "FALSE"), c("AAN", "TRUE"),
-                  c("ANA", NA), c("AAA", "FALSE"), c("AAA", "TRUE"),
-                  c("MNM", NA), c("MAM", "FALSE"), c("MAM", "TRUE"))
-ets_res <- data.frame(); ets_fits <- list()
-for (s in ets_specs) {
-  dmp <- if (is.na(s[2])) NULL else as.logical(s[2])
-  f <- tryCatch(ets(train, model = s[1], damped = dmp), error = function(e) NULL)
-  if (!is.null(f)) {
-    key <- paste0(s[1], "_", ifelse(is.na(s[2]), "NA", s[2]))
-    ets_fits[[key]] <- f
-    ets_res <- rbind(ets_res, data.frame(key = key, AICc = f$aicc))
-  }
-}
-ets_res <- ets_res[order(ets_res$AICc), ]
-fits[["ETS"]] <- ets_fits[[ets_res$key[1]]]
+# ETS(A,N,A) - winner of the 9-candidate additive/multiplicative x
+# damped/undamped search (06_ets.R). No trend, so damped is moot (NULL).
+fits[["ETS"]] <- ets(train, model = "ANA", damped = NULL)
 
-# Config is the one selected by AIC in the BATS grid search (Box-Cox
-# off, damped trend on) - see scripts/07_bats.R for the 4-config grid
-# this was chosen from. Do not change these flags without also updating
-# 07_bats.R and 09_rolling_cv.R to match.
+# BATS(no box-cox, damped trend) - winner of the 4-config
+# {box-cox, damped} x {on, off} grid (07_bats.R).
 fits[["BATS"]] <- bats(train, use.box.cox = FALSE, use.trend = TRUE,
                        use.damped.trend = TRUE)
 

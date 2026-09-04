@@ -21,9 +21,10 @@ Four models across two families, plus a benchmark:
 All orders and specifications are chosen by **explicit grid search ranked
 by AICc**, not by `auto.arima()` or the automatic `ets()` search — the
 candidate sets and selection criteria are written out in each script and
-printed to the console when it runs (`08_group_comparison.R`'s own
-refits are also grid-searched the same way, independent of 04–07 - see
-"Run order" below for why).
+printed to the console when it runs. `08_group_comparison.R` and
+`09_rolling_cv.R` do not re-run these searches themselves; each hard-codes
+the winning config from 04–07's grid search (see "Run order" below for
+why, and the trade-off that comes with it).
 
 Differencing orders (`d`, `D`) are fixed first by unit-root tests
 (`ndiffs`/`nsdiffs`) and then held constant across each grid. AICc is only
@@ -72,10 +73,12 @@ scripts/09_rolling_cv.R       # robustness check (slow — refits everything per
 ```
 
 That's the actual shared, dependent pipeline. Script 08 refits all four
-models itself (ARIMA/SARIMA/ETS/BATS, each re-grid-searched inline) and
-does not read anything from 04–07, so it only needs 02 to have run
-first. Script 09 is independent of 04–08 the same way 08 is - it
-re-grid-searches every model per fold.
+models itself, each with its config hard-coded to the winner of that
+model's own grid search in 04–07 (not re-searched inline), and does not
+read anything from 04–07 directly, so it only needs 02 to have run
+first. Script 09 is independent of 04–08 the same way 08 is - it refits
+every model at every fold using those same hard-coded configs (see the
+comment at the top of 09_rolling_cv.R for the trade-off this implies).
 
 `scripts/04_arima.R`, `05_sarima.R`, `06_ets.R`, and `07_bats.R` sit
 **outside** this run order - despite the numbered filenames, none of
@@ -85,9 +88,11 @@ data read, own MCO resolution, own EDA, own diagnostics, own
 holdout-and-rolling-CV overfitting checks), meant to be run and
 submitted on its own as one member's individual work. Their selected
 configs are the ones `08_group_comparison.R` and `09_rolling_cv.R`
-hardcode/re-derive - see each script's own grid search for where that
-choice comes from. Because they're independent of each other and of
-08–10, running or skipping any one of them doesn't affect the rest of
+hard-code - see each script's own grid search for where that choice
+comes from. If a grid search picks something different after a data
+update, the corresponding hard-coded config in 08 and 09 must be updated
+to match by hand. Because they're independent of each other and of
+08–09, running or skipping any one of them doesn't affect the rest of
 the pipeline.
 
 ## Output structure

@@ -10,10 +10,17 @@
 # Design: expanding training window, 12-month forecast horizon per fold
 # (one full seasonal cycle, matching the main holdout), 5 folds.
 #
-# RUNTIME WARNING: this refits every model at every origin, and BATS is
-# slow because it runs its own internal component search on each fit.
-# Expect several minutes on free Posit Cloud. Reduce the number of folds
-# (widen the `by` argument) if it becomes impractical.
+# Configs: all four models are refit at each origin using the SAME
+# hard-coded config as 08_group_comparison.R (each model's own grid-search
+# winner on the full 79-month training set), rather than re-searching a
+# grid at every fold. This is a deliberate trade-off, not an oversight:
+# refitting the already-chosen structure at each origin still measures
+# genuine out-of-sample accuracy (the parameters ARE re-estimated per
+# fold, just not the order/spec), and it keeps CV fast. What this does
+# NOT measure is whether a shorter training window would have picked a
+# different order/spec - a fold-specific model this script does not
+# search for. Do not change these without also updating 08_group_comparison.R
+# and 04-07 together.
 
 source("scripts/00_setup.R")
 
@@ -46,50 +53,20 @@ for (ts_size in origins) {
   # SNAIVE baseline
   m_sn <- metrics_of(snaive(tr, h = h)$mean)
 
-  # ARIMA (non-seasonal), order re-selected per fold by AICc
-  d1 <- ndiffs(tr, test = "kpss")
-  gA <- expand.grid(p = 0:2, q = 0:2); rA <- data.frame()
-  for (i in seq_len(nrow(gA))) {
-    f <- tryCatch(Arima(tr, order = c(gA$p[i], d1, gA$q[i]),
-                        include.drift = (d1 > 0)), error = function(e) NULL)
-    if (!is.null(f)) rA <- rbind(rA, data.frame(p = gA$p[i], q = gA$q[i], AICc = f$aicc))
-  }
-  rA <- rA[order(rA$AICc), ]
-  m_ar <- metrics_of(forecast(Arima(tr, order = c(rA$p[1], d1, rA$q[1]),
-                                    include.drift = (d1 > 0)), h = h)$mean)
+  # ARIMA(2,1,3) with drift - config fixed to the full-series winner
+  # (see 08_group_comparison.R), re-estimated (parameters only) on tr.
+  m_ar <- metrics_of(forecast(Arima(tr, order = c(2, 1, 3),
+                                    include.drift = TRUE), h = h)$mean)
 
-  # SARIMA, orders re-selected per fold
-  D1 <- nsdiffs(tr)
-  d2 <- ndiffs(if (D1 > 0) diff(tr, lag = 12) else tr, test = "kpss")
-  gS <- expand.grid(p = 0:2, q = 0:2, P = 0:1, Q = 0:1); rS <- data.frame()
-  for (i in seq_len(nrow(gS))) {
-    f <- tryCatch(Arima(tr, order = c(gS$p[i], d2, gS$q[i]),
-                        seasonal = list(order = c(gS$P[i], D1, gS$Q[i]), period = 12)),
-                  error = function(e) NULL)
-    if (!is.null(f)) rS <- rbind(rS, data.frame(p = gS$p[i], q = gS$q[i],
-                                                P = gS$P[i], Q = gS$Q[i], AICc = f$aicc))
-  }
-  rS <- rS[order(rS$AICc), ]
-  m_sa <- metrics_of(forecast(Arima(tr, order = c(rS$p[1], d2, rS$q[1]),
-                                    seasonal = list(order = c(rS$P[1], D1, rS$Q[1]),
-                                                    period = 12)), h = h)$mean)
+  # SARIMA(0,1,2)(1,0,1)[12] - config fixed to the full-series winner.
+  m_sa <- metrics_of(forecast(Arima(tr, order = c(0, 1, 2),
+                                    seasonal = list(order = c(1, 0, 1), period = 12)),
+                              h = h)$mean)
 
-  # ETS, spec re-selected per fold by AICc
-  specs <- list(c("ANN", NA), c("AAN", "TRUE"), c("ANA", NA),
-                c("AAA", "TRUE"), c("MNM", NA), c("MAM", "TRUE"))
-  rE <- data.frame(); eF <- list()
-  for (s in specs) {
-    dmp <- if (is.na(s[2])) NULL else as.logical(s[2])
-    f <- tryCatch(ets(tr, model = s[1], damped = dmp), error = function(e) NULL)
-    if (!is.null(f)) {
-      k <- paste0(s[1], ifelse(is.na(s[2]), "", s[2])); eF[[k]] <- f
-      rE <- rbind(rE, data.frame(key = k, AICc = f$aicc))
-    }
-  }
-  rE <- rE[order(rE$AICc), ]
-  m_ets <- metrics_of(forecast(eF[[rE$key[1]]], h = h)$mean)
+  # ETS(A,N,A) - config fixed to the full-series winner.
+  m_ets <- metrics_of(forecast(ets(tr, model = "ANA", damped = NULL), h = h)$mean)
 
-  # BATS - config as selected by AIC in 07_bats.R (Box-Cox off, damped trend on)
+  # BATS(no box-cox, damped trend) - config fixed to the full-series winner.
   m_tb <- metrics_of(forecast(bats(tr, use.box.cox = FALSE, use.trend = TRUE,
                                     use.damped.trend = TRUE), h = h)$mean)
 
