@@ -181,7 +181,7 @@ test  <- tail(y, h)
 LAG_MAX <- 16
 
 
-# model: find the best AICc configuration {box-cox: on/off, damped: on/off}
+# find the best AIC configuration {box-cox: on/off, damped: on/off}
 configs <- expand.grid(bc = c(TRUE, FALSE), damped = c(TRUE, FALSE))
 
 grid_results <- data.frame()
