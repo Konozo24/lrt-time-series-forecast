@@ -5,11 +5,12 @@
 # (Sustainable Cities and Communities), Target 11.2. Model family: ARIMA
 # (non-seasonal).
 #
-# Self-contained: reads the raw dataset itself, resolves the COVID-19
-# MCO disruption itself, runs its own EDA and diagnostics, fits and
-# validates its own model, writes its own outputs. No source(), no
-# readRDS of a file another script produced, no dependency on any other
-# script in this repo. Setup/data/MCO-resolution logic is duplicated
+# Self-contained: reads the raw dataset itself (via arrow::read_parquet
+# straight off data.gov.my), resolves the COVID-19 MCO disruption itself,
+# runs its own EDA and diagnostics, fits and validates its own model,
+# writes its own outputs. No source(), no readRDS of a file another
+# script produced, no dependency on any other script in this repo.
+# Setup/data/MCO-resolution logic is duplicated
 # from the shared pipeline on purpose so this one file can be submitted
 # and run standalone.
 #
@@ -33,10 +34,11 @@
 # the search space here is 16 candidates, not a handful of binary flags.
 
 # setup
-pkgs <- c("forecast", "tseries", "dplyr", "lubridate", "ggplot2", "zoo", "Kendall")
+pkgs <- c("forecast", "tseries", "dplyr", "lubridate", "ggplot2", "zoo", "Kendall", "arrow")
 new  <- pkgs[!pkgs %in% installed.packages()[, "Package"]]
 if (length(new)) install.packages(new)
 
+library(arrow)      # read_parquet()
 library(forecast)   # Arima(), accuracy(), checkresiduals(), ndiffs()
 library(tseries)    # adf.test(), kpss.test()
 library(dplyr)
@@ -67,8 +69,9 @@ model_fitdf <- function(fit) {
 }
 
 
-# data: read the raw dataset, aggregate daily -> monthly
-raw <- read.csv("data/ridership_headline.csv", stringsAsFactors = FALSE)
+
+# download dataset and aggregate daily -> monthly.
+raw <- as.data.frame(read_parquet("https://storage.data.gov.my/transportation/ridership_headline.parquet"))
 raw$date <- as.Date(raw$date)
 
 monthly <- raw %>%
