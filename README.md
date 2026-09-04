@@ -69,15 +69,13 @@ scripts/02_mco_resolution.R   # resolve (not remove) the MCO window
 scripts/03_eda.R              # decomposition, stationarity, ACF/PACF, lag plot
 scripts/08_group_comparison.R # all four models + SNAIVE, one table
 scripts/09_rolling_cv.R       # robustness check (slow — refits everything per fold)
-scripts/10_sensitivity_post_mco.R  # refit on 2022+ only (no reconstructed months)
 ```
 
 That's the actual shared, dependent pipeline. Script 08 refits all four
 models itself (ARIMA/SARIMA/ETS/BATS, each re-grid-searched inline) and
 does not read anything from 04–07, so it only needs 02 to have run
-first. Script 10 reads `output/tables/model_comparison.csv` for its
-side-by-side ranking, so run 08 before it. Script 09 is independent of
-04–08 the same way 08 is - it re-grid-searches every model per fold.
+first. Script 09 is independent of 04–08 the same way 08 is - it
+re-grid-searches every model per fold.
 
 `scripts/04_arima.R`, `05_sarima.R`, `06_ets.R`, and `07_bats.R` sit
 **outside** this run order - despite the numbered filenames, none of
@@ -96,9 +94,9 @@ the pipeline.
 
 Two different sets of scripts write to `output/`, in two different
 styles, because 04–07 are standalone (see "Run order" above) and 00–03/
-08–10 are the shared, dependent pipeline.
+08–09 are the shared, dependent pipeline.
 
-**Shared pipeline (00–03, 08–10)** uses two small path helpers defined
+**Shared pipeline (00–03, 08–09)** uses two small path helpers defined
 in `00_setup.R` — `fig(category, "name.png")`, `tbl("name.csv")` —
 instead of writing `"output/..."` paths directly:
 
@@ -107,9 +105,9 @@ output/
 ├── plots/
 │   ├── eda/         EDA panels - decomposition, stationarity context
 │   └── comparison/   cross-model plots (bar chart, CV stability,
-│                      per-fold, sensitivity) - go in the GROUP report
-└── tables/    model_comparison.csv, rolling_cv_*.csv, overfit_checks_cv.csv,
-               sensitivity_post_mco.csv (all from 08/09/10)
+│                      per-fold) - go in the GROUP report
+└── tables/    model_comparison.csv, rolling_cv_*.csv, overfit_checks_cv.csv
+               (all from 08/09)
 ```
 
 Fitted model objects are not saved to disk in either style - each
@@ -162,7 +160,6 @@ Key figures to pull into the report:
 - `plots/comparison/rolling_cv_stability.png` — accuracy-vs-stability
   scatter (the ETS finding lives here: high mean, high variance)
 - `plots/comparison/rolling_cv_per_fold.png` — MAPE per model across folds
-- `plots/comparison/sensitivity_post_mco.png` — post-MCO subsample check
 
 ## Importing into Posit Cloud from GitHub
 
@@ -257,43 +254,8 @@ models. BATS is effectively flat between training and cross-validated
 error (0.5% gap), i.e. it generalises without degradation.
 
 On the single holdout the ratios are lower still - ETS 0.868, BATS 0.867,
-SARIMA 0.998, ARIMA 1.071 - because train error there exceeds test error
-(see below). The CV column is the one to quote.
-
-### Sensitivity: does the MCO reconstruction drive the result?
-
-22 of the 79 training months are reconstructed rather than observed
-(`02_mco_resolution.R`). `10_sensitivity_post_mco.R` refits the same
-models on the 2022-01 onward subsample (55 months, 43 train / 12 test),
-where no observation is reconstructed:
-
-| Model | MAPE (post-MCO) | RMSE | MASE | p (lag 12) | p (lag 16) | RMSE ratio | rank full → post |
-|---|---|---|---|---|---|---|---|
-| ETS | 4.168% | 318,488 | 0.294 | 0.054 | **0.003** | 0.849 | 1 → 1 |
-| **BATS** | 4.359% | 306,929 | 0.319 | 0.388 | 0.476 | 1.108 | 2 → 2 |
-| SARIMA | 5.042% | 355,867 | 0.358 | 0.159 | 0.234 | **1.325** | 4 → 3 |
-| SNAIVE | 5.218% | 396,504 | 0.391 | 0.000 | 0.000 | 0.411 | 5 → 4 |
-| ARIMA | 9.971% | 676,968 | 0.715 | 0.135 | 0.172 | **2.422** | 3 → 5 |
-
-The top two are unchanged in both order and identity, so the headline
-result does not depend on the reconstructed months (rank correlation
-0.70).
-
-Three things the clean subsample exposes:
-
-1. **ETS fails Ljung-Box here (p = 0.003 at lag 16).** On unimputed data
-   its accuracy edge comes with autocorrelation left in the residuals.
-2. **BATS is the only model that passes everything** - top-two accuracy,
-   white noise at both lags with **zero** ACF lags outside bounds, and the
-   RMSE ratio under 1.3.
-3. **ARIMA collapses** (MAPE 9.97%, worse than the naive benchmark; RMSE
-   ratio 2.42) and **SARIMA breaches the 1.3 rule** (1.325). Both are
-   short-sample effects: 43 training months is 3.6 seasonal cycles, and
-   the seasonal models have the most parameters to estimate from it.
-
-That last point is why this is a check on the *ranking*, not a fair
-accuracy contest - and why the 91-month series remains the primary
-analysis.
+SARIMA 0.998, ARIMA 1.071 - because train error there exceeds test error.
+The CV column is the one to quote.
 
 Training MAPE exceeds test MAPE for every model (e.g. ETS 4.88% vs
 2.90%). That is not overfitting - the training window spans the MCO

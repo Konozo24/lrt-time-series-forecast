@@ -1,6 +1,0 @@
-"model","MAPE_test","RMSE_test","MAE_test","MASE_test","RMSE_train","MASE_train","fitdf","lb_pvalue_12","lb_pvalue_16","lb_pass","n_lags_out_12","n_lags_out_16","mase_gap_pct","within_10pct","rmse_ratio","within_1_3x","direction"
-"ETS",4.168,318488,242835,0.294,375013,0.335,0,0.0535,0.0032,FALSE,1,2,13.9,FALSE,0.849,TRUE,"train worse"
-"BATS",4.359,306929,262901,0.319,276916,0.262,0,0.388,0.4757,TRUE,0,0,17.8,FALSE,1.108,TRUE,"test worse"
-"SARIMA",5.042,355867,295325,0.358,268494,0.252,5,0.1592,0.2339,TRUE,1,1,29.5,FALSE,1.325,FALSE,"test worse"
-"SNAIVE",5.218,396504,322437,0.391,964361,1,0,0,0,FALSE,5,5,155.8,FALSE,0.411,TRUE,"train worse"
-"ARIMA",9.971,676968,589993,0.715,279537,0.269,3,0.1351,0.1722,TRUE,0,0,62.4,FALSE,2.422,FALSE,"test worse"
