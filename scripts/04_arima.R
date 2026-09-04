@@ -305,7 +305,8 @@ print(results)
 # outputs
 dir.create("output/plots/eda", recursive = TRUE, showWarnings = FALSE)
 dir.create("output/plots/group_summary", recursive = TRUE, showWarnings = FALSE)
-write.csv(results, "output/member_arima_results.csv", row.names = FALSE)
+dir.create("output/tables", recursive = TRUE, showWarnings = FALSE)
+write.csv(results, "output/tables/arima_result.csv", row.names = FALSE)
 
 ggsave("output/plots/eda/stl_decomposition.png", p_stl,
        width = 9, height = 6, dpi = 150)
@@ -324,5 +325,5 @@ png("output/plots/group_summary/resid_arima.png", width = 900, height = 700, res
 checkresiduals(fit_arima)
 dev.off()
 
-cat("\nDone. Wrote output/member_arima_results.csv and 3 plots to",
+cat("\nDone. Wrote output/tables/arima_result.csv and 3 plots to",
     "output/plots/group_summary/\n")

@@ -16,13 +16,12 @@ library(gridExtra)  # grid.arrange() - combine multiple ggplot panels into one f
 # output/plots is split by AUDIENCE, matching how the figures get used when
 # writing the report:
 #   plots/eda/        EDA panels - decomposition, stationarity context
-#   plots/models/     one forecast + one residuals plot per model - these
-#                      are what go in each member's INDIVIDUAL report
-#   plots/comparison/ cross-model plots (bar chart, CV stability, per-fold,
-#                      sensitivity) - these are what go in the GROUP report
+#   plots/comparison/ cross-model plots (bar chart, CV stability, per-fold) -
+#                      these are what go in the GROUP report
+# Each member's individual forecast/residuals plots come from their own
+# standalone script (04-07), which write to plots/group_summary/ by hand.
 dir.create("data", showWarnings = FALSE)
 dir.create("output/plots/eda",        showWarnings = FALSE, recursive = TRUE)
-dir.create("output/plots/models",     showWarnings = FALSE, recursive = TRUE)
 dir.create("output/plots/comparison", showWarnings = FALSE, recursive = TRUE)
 dir.create("output/tables", showWarnings = FALSE, recursive = TRUE)
 

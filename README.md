@@ -92,9 +92,10 @@ the pipeline.
 
 ## Output structure
 
-Two different sets of scripts write to `output/`, in two different
-styles, because 04–07 are standalone (see "Run order" above) and 00–03/
-08–09 are the shared, dependent pipeline.
+Two different sets of scripts write to the same `output/plots/` and
+`output/tables/` folders, in two different styles, because 04–07 are
+standalone (see "Run order" above) and 00–03/08–09 are the shared,
+dependent pipeline.
 
 **Shared pipeline (00–03, 08–09)** uses two small path helpers defined
 in `00_setup.R` — `fig(category, "name.png")`, `tbl("name.csv")` —
@@ -116,20 +117,22 @@ diagnostics, the summary CSV) and nothing downstream reads a saved
 model back in, so there is nothing to gain by persisting them.
 
 **Standalone scripts (04–07)** write their own paths by hand (they
-don't have `00_setup.R` loaded to provide the helpers):
+don't have `00_setup.R` loaded to provide the helpers), but land in the
+same `output/plots/` and `output/tables/` folders as the shared pipeline:
 
 ```
 output/
-├── member_arima_results.csv    # one row: holdout + rolling-CV accuracy,
-├── member_sarima_results.csv   #   overfitting checks, residual p-values
-├── member_ets_results.csv      #   - written by 04/05/06/07 respectively
-├── member_bats_results.csv
-└── plots/
-    ├── eda/               stl_decomposition.png, mco_resolution.png -
-    │                       EACH of 04-07 writes to these SAME two
-    │                       filenames (see note below)
-    └── group_summary/     fc_<model>.png, resid_<model>.png - one pair
-                            per standalone script, distinct filenames
+├── plots/
+│   ├── eda/               stl_decomposition.png, mco_resolution.png -
+│   │                       EACH of 04-07 writes to these SAME two
+│   │                       filenames (see note below)
+│   └── group_summary/     fc_<model>.png, resid_<model>.png - one pair
+│                           per standalone script, distinct filenames
+└── tables/
+    ├── arima_result.csv    # one row: holdout + rolling-CV accuracy,
+    ├── sarima_result.csv   #   overfitting checks, residual p-values
+    ├── ets_result.csv      #   - written by 04/05/06/07 respectively
+    └── bats_result.csv
 ```
 
 Note on the shared filenames: all four of `04_arima.R`–`07_bats.R`
