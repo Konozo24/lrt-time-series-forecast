@@ -28,9 +28,10 @@
 # below are there to answer.
 #
 # Model pick: bats(use.trend = TRUE, use.box.cox = FALSE,
-# use.damped.trend = TRUE), verified via an explicit 4-config grid
-# search over {box-cox on/off} x {damped on/off}, ranked by AIC (not a
-# single automatic bats() call):
+# use.damped.trend = TRUE, use.arma.errors = TRUE, seasonal.periods = 12),
+# verified via an explicit 4-config grid search over {box-cox on/off} x
+# {damped on/off}, ranked by AIC (not a single automatic bats() call).
+#
 #   BATS(no box-cox, damped)     AIC=2352.27, MAPE_test=3.30  <- picked
 #   BATS(no box-cox, undamped)   AIC=2356.93, MAPE_test=6.37
 #   BATS(box-cox, undamped)      AIC=2359.36, MAPE_test=5.97
@@ -189,7 +190,8 @@ for (i in seq_len(nrow(configs))) {
   bc     <- configs$bc[i]
   damped <- configs$damped[i]
   fit <- tryCatch(
-    bats(train, use.box.cox = bc, use.trend = TRUE, use.damped.trend = damped),
+    bats(train, use.box.cox = bc, use.trend = TRUE, use.damped.trend = damped,
+         use.arma.errors = TRUE, seasonal.periods = 12),
     error = function(e) NULL
   )
   if (!is.null(fit)) {
@@ -205,7 +207,8 @@ cat("\n--- BATS candidate configurations (ranked by AIC) ---\n")
 print(grid_results, row.names = FALSE)
 
 # model
-fit_bats <- bats(train, use.box.cox = FALSE, use.trend = TRUE, use.damped.trend = TRUE)
+fit_bats <- bats(train, use.box.cox = FALSE, use.trend = TRUE, use.damped.trend = TRUE,
+                  use.arma.errors = TRUE, seasonal.periods = 12)
 print(fit_bats)
 cat("Fitted Box-Cox lambda:", ifelse(is.null(fit_bats$lambda), NA, fit_bats$lambda), "\n")
 
@@ -248,7 +251,8 @@ cat("\nRolling-CV origins (training sizes):", paste(origins, collapse = ", "), "
 cv_bats <- do.call(rbind, lapply(origins, function(ts_size) {
   tr <- head(y, ts_size)
   te <- window(y, start = time(y)[ts_size + 1], end = time(y)[ts_size + h])
-  m  <- bats(tr, use.box.cox = FALSE, use.trend = TRUE, use.damped.trend = TRUE)
+  m  <- bats(tr, use.box.cox = FALSE, use.trend = TRUE, use.damped.trend = TRUE,
+             use.arma.errors = TRUE, seasonal.periods = 12)
   fcv <- forecast(m, h = h)
   a   <- accuracy(fcv, te)
   data.frame(train_size = ts_size,
