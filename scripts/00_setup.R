@@ -174,3 +174,78 @@ model_summary <- function(name, fit, fc, test) {
     stringsAsFactors = FALSE
   )
 }
+
+# ---------------------------------------------------------------------
+# STLARIMA HELPERS
+# ---------------------------------------------------------------------
+# 04_arima.R's model (credited to Justin, github.com/JusunF/ARIMA,
+# combine.R): STL-decompose the series, fit ARIMA to the seasonally
+# ADJUSTED series with two known-event pulse regressors (xreg), then add
+# the seasonal component back to get forecasts on the original scale.
+# 08_group_comparison.R and 09_rolling_cv.R share these helpers (rather
+# than each hardcoding an order tuple the way they do for SARIMA/ETS/BATS)
+# because a plain (p, d, q) triple isn't a complete spec here - it has to
+# be paired with the STL decomposition and xreg it was selected against.
+# See 04_arima.R for the full rationale, including why order selection is
+# AICc-only (no test-set leakage).
+
+INTERVENTION_DATES <- as.Date(c("2022-06-01", "2023-04-01"))
+
+# Calendar date for every point of a monthly ts, derived purely from its
+# start/frequency (the shared pipeline's ts objects don't carry the
+# original data frame's month column around).
+ts_month_dates <- function(y) {
+  st <- start(y)
+  seq(as.Date(sprintf("%d-%02d-01", st[1], st[2])), by = "month", length.out = length(y))
+}
+
+# One-off pulse dummy per intervention date, aligned to y.
+intervention_xreg <- function(y) {
+  dates <- ts_month_dates(y)
+  m <- sapply(INTERVENTION_DATES, function(d) as.numeric(dates == d))
+  colnames(m) <- paste0("pulse_", format(INTERVENTION_DATES, "%Y%m"))
+  m
+}
+
+# STL-decompose tr, grid-search ARIMA(p,d,q)+xreg on the seasonally
+# adjusted series (d chosen first by KPSS, p/q ranked by AICc), and
+# return the fitted model plus what's needed to reconstruct forecasts on
+# the original scale.
+stlarima_fit <- function(tr, xreg_tr, p_range = 0:3, q_range = 0:3) {
+  stl_tr      <- stl(tr, s.window = "periodic", robust = TRUE)
+  seasadj_tr  <- seasadj(stl_tr)
+  seasonal_tr <- as.numeric(stl_tr$time.series[, "seasonal"])
+  d <- ndiffs(seasadj_tr, test = "kpss")
+
+  grid <- expand.grid(p = p_range, q = q_range)
+  res  <- data.frame()
+  for (i in seq_len(nrow(grid))) {
+    p <- grid$p[i]; q <- grid$q[i]
+    f <- tryCatch(Arima(seasadj_tr, order = c(p, d, q), xreg = xreg_tr,
+                        include.drift = (d > 0)), error = function(e) NULL)
+    if (!is.null(f)) res <- rbind(res, data.frame(p = p, q = q, AICc = f$aicc))
+  }
+  res <- res[order(res$AICc), ]
+  fit <- Arima(seasadj_tr, order = c(res$p[1], d, res$q[1]), xreg = xreg_tr,
+               include.drift = (d > 0))
+  list(fit = fit, seasonal_train = seasonal_tr, order = c(res$p[1], d, res$q[1]))
+}
+
+# Forecast an stlarima_fit() result h steps ahead and reconstruct it onto
+# the ORIGINAL scale (add the seasonal component back to fitted/mean/PI),
+# as a proper "forecast" object so accuracy()/autoplot() work on it
+# directly, with MASE scaled correctly off the raw (not seasadj) series.
+stlarima_forecast <- function(sf, tr, h, xreg_test) {
+  fc <- forecast(sf$fit, h = h, xreg = xreg_test)
+  seasonal_fc <- rep(tail(sf$seasonal_train, 12), length.out = h)
+  fc$x      <- tr
+  fc$mean   <- ts(as.numeric(fc$mean) + seasonal_fc,
+                   start = start(fc$mean), frequency = frequency(fc$mean))
+  fc$fitted <- ts(as.numeric(fitted(sf$fit)) + sf$seasonal_train,
+                   start = start(tr), frequency = frequency(tr))
+  if (!is.null(fc$lower)) {
+    fc$lower <- fc$lower + seasonal_fc
+    fc$upper <- fc$upper + seasonal_fc
+  }
+  fc
+}

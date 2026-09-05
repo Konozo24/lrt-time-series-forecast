@@ -2,36 +2,23 @@
 # Topic: LRT Ampang line monthly ridership (trips/month), data.gov.my
 # Daily Public Transport Ridership dataset (Prasarana Malaysia + Ministry
 # of Transport, CC BY 4.0), 2019-01 to 2026-07 (91 months). SDG 11
-# (Sustainable Cities and Communities), Target 11.2. Model family: ARIMA
-# (non-seasonal).
+# (Sustainable Cities and Communities), Target 11.2. Model family:
+# STLARIMA (STL-decomposed ARIMA with intervention regressors).
 #
 # Self-contained: reads the raw dataset itself (via arrow::read_parquet
 # straight off data.gov.my), resolves the COVID-19 MCO disruption itself,
 # runs its own EDA and diagnostics, fits and validates its own model,
 # writes its own outputs. No source(), no readRDS of a file another
 # script produced, no dependency on any other script in this repo.
-# Setup/data/MCO-resolution logic is duplicated
-# from the shared pipeline on purpose so this one file can be submitted
-# and run standalone.
+# Setup/data/MCO-resolution logic is duplicated from the shared pipeline
+# on purpose so this one file can be submitted and run standalone.
 #
-# Role in the comparison: the non-seasonal member of the ARIMA family.
-# EDA below confirms genuine annual seasonality (STL seasonal component,
-# ACF/PACF spike at lag 12), so a model with no seasonal terms is NOT
-# expected to win outright - it is fitted deliberately as the
-# within-family reference point: the AICc gap between this model and a
-# seasonal SARIMA specification is the direct evidence that seasonal
-# terms earn their extra parameters, rather than being assumed.
-#
-# NOT using auto.arima(): orders are selected by an explicit grid search
-# so the selection is visible and defensible, rather than delegated to a
-# black-box stepwise search.
-#
-# Differencing order d is chosen FIRST, by unit-root test, and then held
-# fixed across the grid. This matters: AICc is only comparable between
-# models fitted to the same effective series, so mixing different d
-# values into one AICc ranking would be an invalid comparison. The
-# selected order is read dynamically off the grid (not hardcoded) since
-# the search space here is 16 candidates, not a handful of binary flags.
+# Role in the comparison: the ARIMA-family member that removes seasonality
+# structurally (via STL) rather than modelling it with seasonal ARMA terms
+# (SARIMA, 05_sarima.R) or exponential smoothing (ETS/BATS). The two xreg
+# pulses give it a mechanism the other family members don't have: an
+# explicit correction for one-off events at 2022-06 and 2023-04, rather
+# than folding them into the noise.
 
 # setup
 pkgs <- c("forecast", "tseries", "dplyr", "lubridate", "ggplot2", "zoo", "Kendall", "arrow")
@@ -39,7 +26,7 @@ new  <- pkgs[!pkgs %in% installed.packages()[, "Package"]]
 if (length(new)) install.packages(new)
 
 library(arrow)      # read_parquet()
-library(forecast)   # Arima(), accuracy(), checkresiduals(), ndiffs()
+library(forecast)   # Arima(), forecast(), accuracy(), checkresiduals(), ndiffs(), seasadj()
 library(tseries)    # adf.test(), kpss.test()
 library(dplyr)
 library(lubridate)
@@ -62,10 +49,30 @@ scale_y_millions <- function() {
 # Degrees of freedom consumed by the fitted ARMA parameters (p+q+P+Q,
 # from fit$arma). Box.test()'s default fitdf = 0 treats residuals as if
 # nothing had been estimated and makes the test too LENIENT - the
-# p-value comes out larger than it should. ETS/BATS get 0 here too
-# (fit$arma is NULL for those), matching checkresiduals()' own treatment.
+# p-value comes out larger than it should. The xreg pulse coefficients
+# are NOT counted here, matching the usual convention that fitdf refers
+# to the ARMA part only (and matching checkresiduals()' own treatment).
 model_fitdf <- function(fit) {
   if (!is.null(fit$arma) && length(fit$arma) >= 4) sum(fit$arma[1:4]) else 0
+}
+
+# Fits an ARIMA(p, d, q) + xreg model to a seasonally adjusted series and
+# hands back a forecast/accuracy table on the ORIGINAL scale, by adding
+# the STL seasonal component back onto the fitted values, the forecast
+# mean, and the prediction interval bounds. accuracy()'s MASE needs the
+# raw (not seasonally adjusted) training series in fc$x to scale correctly
+# via seasonal differencing.
+stlarima_accuracy_orig <- function(fit, fc, seasonal_train, seasonal_fc, tr_orig, te_orig) {
+  fc$x      <- tr_orig
+  fc$mean   <- ts(as.numeric(fc$mean) + seasonal_fc,
+                   start = start(fc$mean), frequency = frequency(fc$mean))
+  fc$fitted <- ts(as.numeric(fitted(fit)) + seasonal_train,
+                   start = start(tr_orig), frequency = frequency(tr_orig))
+  if (!is.null(fc$lower)) {
+    fc$lower <- fc$lower + seasonal_fc
+    fc$upper <- fc$upper + seasonal_fc
+  }
+  list(fc = fc, acc = accuracy(fc, te_orig))
 }
 
 
@@ -173,42 +180,101 @@ test  <- tail(y, h)
 LAG_MAX <- 16
 
 
-# model: choose d by unit-root test (KPSS), then grid search p and q
-# with d fixed, ranked by AICc
-d <- ndiffs(train, test = "kpss")
-cat("Selected differencing order d =", d, "(KPSS-based)\n")
+# STL-decompose the TRAINING series: model the seasonally adjusted part,
+# carry the seasonal part forward untouched (repeat the last full year)
+# to reconstruct forecasts on the original scale.
+stl_train      <- stl(train, s.window = "periodic", robust = TRUE)
+seasadj_train  <- seasadj(stl_train)
+seasonal_train <- as.numeric(stl_train$time.series[, "seasonal"])
+seasonal_fc_test <- rep(tail(seasonal_train, 12), length.out = h)
+
+cat("\n== ADF on seas-adj train, level (want p < 0.05 = stationary) ==\n")
+print(adf.test(seasadj_train))
+cat("\n== KPSS on seas-adj train, level (want p > 0.05 = stationary) ==\n")
+print(kpss.test(seasadj_train, null = "Level"))
+
+diff_seasadj_train <- diff(seasadj_train)
+cat("\n== ADF on seas-adj train, differenced ==\n")
+print(adf.test(diff_seasadj_train))
+cat("\n== KPSS on seas-adj train, differenced ==\n")
+print(kpss.test(diff_seasadj_train, null = "Level"))
+
+# ACF/PACF of the differenced, seasonally adjusted training series -
+# the diagnostic that motivates the p/q search range below.
+acf_vals  <- acf(diff_seasadj_train,  lag.max = 24, plot = FALSE)
+pacf_vals <- pacf(diff_seasadj_train, lag.max = 24, plot = FALSE)
+ci_bound  <- 1.96 / sqrt(length(diff_seasadj_train))
+
+acf_df  <- data.frame(lag = round(as.numeric(acf_vals$lag) * 12), value = as.numeric(acf_vals$acf),
+                       type = "ACF")
+acf_df  <- acf_df[acf_df$lag > 0, ]
+pacf_df <- data.frame(lag = round(as.numeric(pacf_vals$lag) * 12), value = as.numeric(pacf_vals$acf),
+                       type = "PACF")
+acf_pacf_df <- rbind(acf_df, pacf_df)
+acf_pacf_df$type <- factor(acf_pacf_df$type, levels = c("ACF", "PACF"))
+
+p_acf_pacf <- ggplot(acf_pacf_df, aes(x = lag, y = value)) +
+  geom_col(fill = "#3366FF", width = 0.6) +
+  geom_hline(yintercept = c(-ci_bound, ci_bound), linetype = "dashed", color = "grey40") +
+  geom_hline(yintercept = 0, color = "black") +
+  facet_wrap(~type, ncol = 1, scales = "free_x") +
+  labs(title = "ACF/PACF - differenced, seasonally adjusted training series",
+       x = "Lag (months)", y = "Correlation") +
+  theme_minimal()
+print(p_acf_pacf)
+
+
+# known-event intervention regressors (xreg) - one-off pulse dummies at
+# 2022-06 and 2023-04, per Justin's original specification.
+intervention_dates <- as.Date(c("2022-06-01", "2023-04-01"))
+xreg_all <- sapply(intervention_dates, function(d) as.numeric(monthly$month == d))
+colnames(xreg_all) <- paste0("pulse_", format(intervention_dates, "%Y%m"))
+
+xreg_train <- head(xreg_all, length(y) - h)
+xreg_test  <- tail(xreg_all, h)
+cat("\nIntervention months in training window:",
+    paste(colnames(xreg_train)[colSums(xreg_train) > 0], collapse = ", "), "\n")
+
+
+# model: choose d by unit-root test (KPSS) on the seasonally adjusted
+# training series, then grid search p and q with d and xreg fixed,
+# ranked by AICc on the training data only (no test-set leakage).
+d <- ndiffs(seasadj_train, test = "kpss")
+cat("Selected differencing order d =", d, "(KPSS-based, seas-adj series)\n")
 
 grid <- expand.grid(p = 0:3, q = 0:3)
 grid_results <- data.frame()
 for (i in seq_len(nrow(grid))) {
   p <- grid$p[i]; q <- grid$q[i]
   fit <- tryCatch(
-    Arima(train, order = c(p, d, q), include.drift = (d > 0)),
+    Arima(seasadj_train, order = c(p, d, q), xreg = xreg_train, include.drift = (d > 0)),
     error = function(e) NULL
   )
   if (!is.null(fit)) {
     grid_results <- rbind(grid_results, data.frame(p = p, d = d, q = q,
-                                                    AICc = fit$aicc, BIC = fit$bic))
+                                                     AICc = fit$aicc, BIC = fit$bic))
   }
 }
 grid_results <- grid_results[order(grid_results$AICc), ]
-cat("\n--- ARIMA candidate grid (top 8 by AICc) ---\n")
+cat("\n--- STLARIMA candidate grid (top 8 by AICc) ---\n")
 print(head(grid_results, 8), row.names = FALSE)
 
 best <- grid_results[1, ]
-label <- paste0("ARIMA(", best$p, ",", best$d, ",", best$q, ")")
+label <- paste0("STLARIMA(", best$p, ",", best$d, ",", best$q, ")+Interventions")
 cat("\nSelected:", label, " AICc =", round(best$AICc, 2), "\n")
 
-fit_arima <- Arima(train, order = c(best$p, best$d, best$q),
-                   include.drift = (best$d > 0))
+fit_arima <- Arima(seasadj_train, order = c(best$p, best$d, best$q),
+                    xreg = xreg_train, include.drift = (best$d > 0))
 print(summary(fit_arima))
 
-fc_arima <- forecast(fit_arima, h = h)
-acc_arima <- accuracy(fc_arima, test)
+fc_arima_seasadj <- forecast(fit_arima, h = h, xreg = xreg_test)
+recon <- stlarima_accuracy_orig(fit_arima, fc_arima_seasadj, seasonal_train, seasonal_fc_test, train, test)
+fc_arima  <- recon$fc     # forecast object, reconstructed onto the original scale
+acc_arima <- recon$acc
 print(acc_arima)
 
 # SNAIVE benchmark: any model that cannot beat SNAIVE is not earning the
-# complexity it adds (same rationale as 08_group_comparison.R).
+# complexity it adds
 snaive_fit <- snaive(train, h = h)
 acc_snaive <- accuracy(snaive_fit, test)
 cat("\n== SNAIVE benchmark (test-set accuracy) ==\n")
@@ -218,7 +284,8 @@ cat("ARIMA test MASE:", round(acc_arima["Test set", "MASE"], 3),
     "| ARIMA beats SNAIVE:", acc_arima["Test set", "MASE"] < acc_snaive["Test set", "MASE"], "\n")
 
 
-# residual diagnostics
+# residual diagnostics (on the seasadj-scale model residuals, where the
+# model was actually fit)
 resid_arima <- residuals(fit_arima)
 fitdf_arima <- model_fitdf(fit_arima)
 
@@ -245,10 +312,12 @@ cat("\nrmse_ratio_holdout:", round(rmse_ratio_holdout, 3),
     " mase_gap_pct_holdout:", round(mase_gap_holdout * 100, 1), "\n")
 
 
-# overfitting check: rolling-origin CV (5 expanding-window folds, 12-month horizon each)
-# Order is re-selected per fold from a reduced grid (p,q = 0:2), matching
-# the shared pipeline's 09_rolling_cv.R - a full p,q = 0:3 search at 5
-# origins would be needlessly slow for a robustness check.
+# overfitting check: rolling-origin CV (5 expanding-window folds, 12-month
+# horizon each). Order is re-selected per fold from a reduced grid
+# (p,q = 0:2), matching the shared pipeline's 09_rolling_cv.R - a full
+# p,q = 0:3 search at 5 origins would be needlessly slow for a
+# robustness check. Each fold redoes its own STL decomposition and reuses
+# the matching slice of xreg_all for that fold's train/test window.
 n_full  <- length(y) # 91 months
 origins <- seq(n_full - h - 16, n_full - h, by = 4)   # 5 expanding origins
 cat("\nRolling-CV origins (training sizes):", paste(origins, collapse = ", "), "\n")
@@ -257,19 +326,28 @@ cv_arima <- do.call(rbind, lapply(origins, function(ts_size) {
   tr <- head(y, ts_size)
   te <- window(y, start = time(y)[ts_size + 1], end = time(y)[ts_size + h])
 
-  d_fold <- ndiffs(tr, test = "kpss")
+  xreg_tr <- xreg_all[1:ts_size, , drop = FALSE]
+  xreg_te <- xreg_all[(ts_size + 1):(ts_size + h), , drop = FALSE]
+
+  stl_fold      <- stl(tr, s.window = "periodic", robust = TRUE)
+  seasadj_fold  <- seasadj(stl_fold)
+  seasonal_fold <- as.numeric(stl_fold$time.series[, "seasonal"])
+  seasonal_fc_fold <- rep(tail(seasonal_fold, 12), length.out = h)
+
+  d_fold <- ndiffs(seasadj_fold, test = "kpss")
   g_fold <- expand.grid(p = 0:2, q = 0:2)
   r_fold <- data.frame()
   for (i in seq_len(nrow(g_fold))) {
-    f <- tryCatch(Arima(tr, order = c(g_fold$p[i], d_fold, g_fold$q[i]),
-                        include.drift = (d_fold > 0)), error = function(e) NULL)
+    f <- tryCatch(Arima(seasadj_fold, order = c(g_fold$p[i], d_fold, g_fold$q[i]),
+                         xreg = xreg_tr, include.drift = (d_fold > 0)), error = function(e) NULL)
     if (!is.null(f)) r_fold <- rbind(r_fold, data.frame(p = g_fold$p[i], q = g_fold$q[i], AICc = f$aicc))
   }
   r_fold <- r_fold[order(r_fold$AICc), ]
-  m <- Arima(tr, order = c(r_fold$p[1], d_fold, r_fold$q[1]), include.drift = (d_fold > 0))
+  m <- Arima(seasadj_fold, order = c(r_fold$p[1], d_fold, r_fold$q[1]),
+             xreg = xreg_tr, include.drift = (d_fold > 0))
 
-  fcv <- forecast(m, h = h)
-  a   <- accuracy(fcv, te)
+  fcv <- forecast(m, h = h, xreg = xreg_te)
+  a   <- stlarima_accuracy_orig(m, fcv, seasonal_fold, seasonal_fc_fold, tr, te)$acc
   data.frame(train_size = ts_size,
              MAPE = a["Test set", "MAPE"],
              RMSE = a["Test set", "RMSE"],
@@ -312,6 +390,8 @@ ggsave("output/plots/eda/stl_decomposition.png", p_stl,
        width = 9, height = 6, dpi = 150)
 ggsave("output/plots/eda/mco_resolution.png", p_mco,
        width = 9, height = 5, dpi = 150)
+ggsave("output/plots/eda/acf_pacf_stlarima.png", p_acf_pacf,
+       width = 8, height = 7, dpi = 150)
 
 # forecast vs actual, zoomed to the last 3 years
 p_fc <- autoplot(fc_arima) +
@@ -325,5 +405,5 @@ png("output/plots/group_summary/resid_arima.png", width = 900, height = 700, res
 checkresiduals(fit_arima)
 dev.off()
 
-cat("\nDone. Wrote output/tables/arima_result.csv and 3 plots to",
-    "output/plots/group_summary/\n")
+cat("\nDone. Wrote output/tables/arima_result.csv and 4 plots to",
+    "output/plots/eda/ and output/plots/group_summary/\n")

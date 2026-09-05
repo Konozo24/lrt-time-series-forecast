@@ -28,23 +28,41 @@ cat("Series:", length(y), "months | train:", length(train),
     "| test:", length(test), "(h =", H, ")\n\n")
 
 # ---- Refit all four models + baseline ---------------------------------
-# All four configs below are hard-coded to the winner of each model's own
-# grid search (run in 04_arima.R/05_sarima.R/06_ets.R/07_bats.R against
-# this same 79-month training set) rather than re-searched here. This
-# keeps every run fast and the comparison table stable and reproducible.
-# Trade-off, stated honestly: if the source data changes (e.g. a new
-# month is appended), these are NOT re-verified as still AICc-best - the
+# SARIMA/ETS/BATS below are hard-coded to the winner of each model's own
+# grid search (run in 05_sarima.R/06_ets.R/07_bats.R against this same
+# 79-month training set) rather than re-searched here. This keeps every
+# run fast and the comparison table stable and reproducible. Trade-off,
+# stated honestly: if the source data changes (e.g. a new month is
+# appended), these are NOT re-verified as still AICc-best - the
 # corresponding standalone script must be re-run and this block updated
 # to match. Do not change these without also updating 07_bats.R,
-# 04_arima.R, 05_sarima.R, 06_ets.R, and 09_rolling_cv.R together.
+# 05_sarima.R, 06_ets.R, and 09_rolling_cv.R together.
+#
+# ARIMA is the one exception, and deliberately not hard-coded: 04_arima.R
+# fits a STLARIMA (STL-decomposed ARIMA + intervention xreg, credited to
+# Justin, github.com/JusunF/ARIMA/combine.R) rather than a plain ARIMA(p,d,q)
+# on the raw series. A bare order tuple isn't a complete spec for that
+# model - it has to be paired with the STL decomposition and the xreg it
+# was selected against - so the shared stlarima_fit()/stlarima_forecast()
+# helpers in 00_setup.R re-derive it here instead, on the same training
+# set and with the same AICc-only, no-test-leakage selection 04_arima.R
+# uses. See 00_setup.R for the helpers and 04_arima.R for the rationale.
 
 fits <- list()
 
 fits[["SNAIVE"]] <- snaive(train, h = H)
 
-# ARIMA(2,1,3) with drift - winner of the {p:0-3, q:0-3} grid at d=1
-# (04_arima.R). fitdf = p+q = 5.
-fits[["ARIMA"]] <- Arima(train, order = c(2, 1, 3), include.drift = TRUE)
+# STLARIMA - STL-decompose train, fit ARIMA(p,d,q)+xreg to the seasonally
+# adjusted series (d by KPSS, p/q by AICc over {0:3, 0:3}), pulse xreg at
+# the two intervention dates in 04_arima.R. fitdf = p+q (xreg coefficients
+# don't count, matching model_fitdf()'s convention).
+xreg_all   <- intervention_xreg(y)
+xreg_train <- head(xreg_all, length(train))
+xreg_test  <- tail(xreg_all, H)
+sf_arima   <- stlarima_fit(train, xreg_train)
+fits[["ARIMA"]] <- sf_arima$fit
+fc_arima_precomputed <- stlarima_forecast(sf_arima, train, H, xreg_test)
+cat("STLARIMA order:", paste(sf_arima$order, collapse = ","), "\n")
 
 # SARIMA(0,1,2)(1,0,1)[12] - winner of the {p,q:0-2, P,Q:0-1} grid at
 # d=1, D=0 (05_sarima.R). fitdf = p+q+P+Q = 4.
@@ -64,7 +82,7 @@ fits[["BATS"]] <- bats(train, use.box.cox = FALSE, use.trend = TRUE,
 rows <- data.frame()
 for (nm in names(fits)) {
   fit <- fits[[nm]]
-  fc  <- if (nm == "SNAIVE") fit else forecast(fit, h = H)
+  fc  <- if (nm == "SNAIVE") fit else if (nm == "ARIMA") fc_arima_precomputed else forecast(fit, h = H)
   a   <- accuracy(fc, test)
   g   <- gap_check(a)
   r   <- residuals(fit)
@@ -138,7 +156,9 @@ cat("  ETS test MAPE:",   rows$MAPE_test[rows$model == "ETS"],
 
 # ---- Combined forecast plot ------------------------------------------
 fc_all <- lapply(names(fits), function(nm)
-  if (nm == "SNAIVE") fits[[nm]] else forecast(fits[[nm]], h = H))
+  if (nm == "SNAIVE") fits[[nm]]
+  else if (nm == "ARIMA") fc_arima_precomputed
+  else forecast(fits[[nm]], h = H))
 names(fc_all) <- names(fits)
 
 p <- autoplot(window(y, start = c(2022, 1))) +

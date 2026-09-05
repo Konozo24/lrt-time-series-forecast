@@ -10,7 +10,7 @@
 # Design: expanding training window, 12-month forecast horizon per fold
 # (one full seasonal cycle, matching the main holdout), 5 folds.
 #
-# Configs: all four models are refit at each origin using the SAME
+# Configs: SNAIVE/SARIMA/ETS/BATS are refit at each origin using the SAME
 # hard-coded config as 08_group_comparison.R (each model's own grid-search
 # winner on the full 79-month training set), rather than re-searching a
 # grid at every fold. This is a deliberate trade-off, not an oversight:
@@ -19,8 +19,15 @@
 # fold, just not the order/spec), and it keeps CV fast. What this does
 # NOT measure is whether a shorter training window would have picked a
 # different order/spec - a fold-specific model this script does not
-# search for. Do not change these without also updating 08_group_comparison.R
-# and 04-07 together.
+# search for.
+#
+# ARIMA is the exception: it's a STLARIMA (see 00_setup.R's
+# stlarima_fit()/stlarima_forecast() and 04_arima.R), and a bare order
+# tuple isn't a complete spec for it - it has to be paired with each
+# fold's own STL decomposition and xreg. So its order IS re-searched per
+# fold here (reduced grid, p/q = 0:2), matching what 04_arima.R's own
+# rolling-CV section already does for the same reason. Do not change
+# these without also updating 08_group_comparison.R and 04-07 together.
 
 source("scripts/00_setup.R")
 
@@ -30,6 +37,8 @@ h <- H                      # 12-month horizon per fold
 
 origins <- seq(n - h - 16, n - h, by = 4)   # 5 expanding-window origins
 cat("Folds:", length(origins), "| training sizes:", paste(origins, collapse = ", "), "\n\n")
+
+xreg_all <- intervention_xreg(y)   # STLARIMA (ARIMA row) intervention pulses
 
 cv <- data.frame()
 
@@ -53,10 +62,13 @@ for (ts_size in origins) {
   # SNAIVE baseline
   m_sn <- metrics_of(snaive(tr, h = h)$mean)
 
-  # ARIMA(2,1,3) with drift - config fixed to the full-series winner
-  # (see 08_group_comparison.R), re-estimated (parameters only) on tr.
-  m_ar <- metrics_of(forecast(Arima(tr, order = c(2, 1, 3),
-                                    include.drift = TRUE), h = h)$mean)
+  # STLARIMA - order re-searched on THIS fold's own STL decomposition
+  # (reduced grid, p/q = 0:2), not fixed to the full-series winner - see
+  # header. xreg pulses come from this fold's own train/test slice.
+  xreg_tr <- xreg_all[1:ts_size, , drop = FALSE]
+  xreg_te <- xreg_all[(ts_size + 1):(ts_size + h), , drop = FALSE]
+  sf_ar   <- stlarima_fit(tr, xreg_tr, p_range = 0:2, q_range = 0:2)
+  m_ar    <- metrics_of(stlarima_forecast(sf_ar, tr, h, xreg_te)$mean)
 
   # SARIMA(0,1,2)(1,0,1)[12] - config fixed to the full-series winner.
   m_sa <- metrics_of(forecast(Arima(tr, order = c(0, 1, 2),
