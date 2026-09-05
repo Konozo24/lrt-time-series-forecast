@@ -186,3 +186,31 @@ p_bar <- ggplot(rows, aes(x = reorder(model, MAPE_test), y = MAPE_test,
   theme_minimal()
 print(p_bar)
 ggsave(fig("comparison", "model_comparison_bar.png"), p_bar, width = 8, height = 5, dpi = 150)
+
+# ---- 2x2 panel: each family member's own forecast vs actual -----------
+# Same idea as the combined overlay plot above, but one panel per model
+# instead of five lines on one axis - easier to read each model's own
+# fit/miss pattern without the others crowding it. Same grid.arrange()
+# (preview) + arrangeGrob() (save) pattern as 03_eda.R's 2x2 EDA figure.
+zoom_start <- c(2022, 1)   # matches the combined overlay plot above
+
+panel <- function(nm) {
+  autoplot(window(y, start = zoom_start)) +
+    autolayer(fc_all[[nm]]$mean, series = "Forecast", size = 0.8) +
+    autolayer(test, series = "Actual", color = "red", size = 0.8) +
+    ggtitle(nm) +
+    ylab("Monthly ridership") + scale_y_millions() +
+    theme(legend.position = "none", plot.title = element_text(size = 11))
+}
+
+p_arima_panel  <- panel("ARIMA")
+p_sarima_panel <- panel("SARIMA")
+p_ets_panel    <- panel("ETS")
+p_bats_panel   <- panel("BATS")
+
+grid.arrange(p_arima_panel, p_sarima_panel, p_ets_panel, p_bats_panel, ncol = 2,
+             top = "Forecast vs Actual by Model (12-month holdout)")
+
+p_grid_2x2 <- arrangeGrob(p_arima_panel, p_sarima_panel, p_ets_panel, p_bats_panel,
+                           ncol = 2, top = "Forecast vs Actual by Model (12-month holdout)")
+ggsave(fig("comparison", "model_grid_2x2.png"), p_grid_2x2, width = 11, height = 7, dpi = 150)
