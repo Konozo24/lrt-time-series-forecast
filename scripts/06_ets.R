@@ -281,6 +281,17 @@ ggsave(fig("ets", "ets_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_ets, test))
 
+# SNAIVE benchmark: any model that cannot beat SNAIVE is not earning the
+# complexity it adds (same rationale as 08_group_comparison.R).
+snaive_fit <- snaive(train, h = H)
+acc_snaive <- accuracy(snaive_fit, test)
+cat("\n== SNAIVE benchmark (test-set accuracy) ==\n")
+print(acc_snaive)
+cat("ETS test MASE:", round(accuracy(fc_ets, test)["Test set", "MASE"], 3),
+    "| SNAIVE test MASE:", round(acc_snaive["Test set", "MASE"], 3),
+    "| ETS beats SNAIVE:",
+    accuracy(fc_ets, test)["Test set", "MASE"] < acc_snaive["Test set", "MASE"], "\n")
+
 cat("\n--- Residual diagnostics ---\n")
 checkresiduals(fit_ets)
 dev.copy(png, filename = fig("ets", "ets_residuals.png"), width = 900, height = 700, res = 130)
@@ -292,6 +303,62 @@ cat("ACF-out-of-bounds:", acf_out_of_bounds(residuals(fit_ets)), "/", LAG_MAX, "
 g <- gap_check(accuracy(fc_ets, test))
 cat("Train/test MAPE gap:", round(g$mape_gap * 100, 1),
     "% | within 10%:", g$within_10pct, "\n")
+
+
+# overfitting check: 5-fold rolling-origin CV. Spec is re-selected per
+# fold from a reduced 6-candidate list
+n_full  <- length(y)
+origins <- seq(n_full - H - 16, n_full - H, by = 4)   # 5 expanding origins
+cat("\nRolling-CV origins (training sizes):", paste(origins, collapse = ", "), "\n")
+
+cv_candidates <- list(
+  list(label = "ANN", model = "ANN", damped = NULL),
+  list(label = "AAN", model = "AAN", damped = TRUE),
+  list(label = "ANA", model = "ANA", damped = NULL),
+  list(label = "AAA", model = "AAA", damped = TRUE),
+  list(label = "MNM", model = "MNM", damped = NULL),
+  list(label = "MAM", model = "MAM", damped = TRUE)
+)
+
+cv_ets <- do.call(rbind, lapply(origins, function(ts_size) {
+  tr <- head(y, ts_size)
+  te <- window(y, start = time(y)[ts_size + 1], end = time(y)[ts_size + H])
+
+  r_fold <- data.frame(); f_fold <- list()
+  for (cand in cv_candidates) {
+    f <- tryCatch(ets(tr, model = cand$model, damped = cand$damped), error = function(e) NULL)
+    if (!is.null(f)) {
+      f_fold[[cand$label]] <- f
+      r_fold <- rbind(r_fold, data.frame(label = cand$label, AICc = f$aicc))
+    }
+  }
+  r_fold <- r_fold[order(r_fold$AICc), ]
+  m <- f_fold[[r_fold$label[1]]]
+
+  fcv <- forecast(m, h = H)
+  a   <- accuracy(fcv, te)
+  data.frame(train_size = ts_size,
+             spec = r_fold$label[1],
+             MAPE = a["Test set", "MAPE"],
+             RMSE = a["Test set", "RMSE"],
+             MASE = a["Test set", "MASE"])
+}))
+print(cv_ets)
+write.csv(cv_ets, tbl("ets_rolling_cv.csv"), row.names = FALSE)
+
+cv_summary <- cv_ets %>%
+  summarise(mean_MAPE = mean(MAPE), sd_MAPE = sd(MAPE),
+            min_MAPE  = min(MAPE),  max_MAPE = max(MAPE),
+            mean_RMSE = mean(RMSE), mean_MASE = mean(MASE), n_folds = n())
+print(cv_summary)
+
+rmse_ratio_cv <- cv_summary$mean_RMSE / g$rmse_train
+mase_gap_cv   <- abs(cv_summary$mean_MASE - g$mase_train) / cv_summary$mean_MASE
+cat("\n[Rolling CV] mean MAPE:", round(cv_summary$mean_MAPE, 2),
+    "% | RMSE ratio:", round(rmse_ratio_cv, 3),
+    "| MASE gap:", round(mase_gap_cv * 100, 1), "%\n")
+cat("  within 1.3x RMSE ratio:", rmse_ratio_cv <= 1.3, "\n")
+cat("  within 10% MASE gap  :", mase_gap_cv <= 0.10, "\n")
 
 summ <- model_summary(best_label, fit_ets, fc_ets, test)
 print(summ)
