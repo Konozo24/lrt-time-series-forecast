@@ -376,4 +376,4 @@ summ <- model_summary(best_label, fit_ets, fc_ets, test)
 print(summ)
 
 write.csv(results, tbl("ets_grid.csv"), row.names = FALSE)
-write.csv(summ, tbl("summary_ets.csv"), row.names = FALSE)
+write.csv(summ, tbl("ets_result.csv"), row.names = FALSE)

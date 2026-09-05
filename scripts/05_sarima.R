@@ -366,4 +366,4 @@ results <- data.frame(
   lb_pvalue_16         = round(lb16$p.value, 4)
 )
 print(results)
-write.csv(results, tbl("sarima_final_summary.csv"), row.names = FALSE)
+write.csv(results, tbl("sarima_result.csv"), row.names = FALSE)
