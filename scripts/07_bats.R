@@ -307,9 +307,10 @@ p_fc <- autoplot(fc_bats) +
 print(p_fc)
 ggsave("output/plots/group_summary/fc_bats.png", p_fc, width = 8, height = 5, dpi = 150)
 
-png("output/plots/group_summary/resid_bats.png", width = 900, height = 700, res = 130)
-checkresiduals(fit_bats)
+checkresiduals(fit_bats)   # shown on screen (Posit Cloud Plots pane)
+dev.copy(png, filename = "output/plots/group_summary/resid_bats.png",
+          width = 900, height = 700, res = 130)
 dev.off()
 
-cat("\nDone. Wrote output/tables/bats_result.csv and 3 plots to",
-    "output/plots/group_summary/\n")
+cat("\nDone. Wrote output/tables/bats_result.csv, 2 plots to",
+    "output/plots/eda/, and 2 plots to output/plots/group_summary/\n")

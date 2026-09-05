@@ -9,9 +9,10 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 
-dir.create("output/plots/ets", showWarnings = FALSE, recursive = TRUE)
-dir.create("output/tables",    showWarnings = FALSE, recursive = TRUE)
-dir.create("output/models",    showWarnings = FALSE, recursive = TRUE)
+dir.create("output/plots/ets",            showWarnings = FALSE, recursive = TRUE)
+dir.create("output/plots/group_summary",  showWarnings = FALSE, recursive = TRUE)
+dir.create("output/tables",               showWarnings = FALSE, recursive = TRUE)
+dir.create("output/models",               showWarnings = FALSE, recursive = TRUE)
 
 fig <- function(category, name) file.path("output/plots", category, name)
 tbl <- function(name) file.path("output/tables", name)
@@ -289,7 +290,7 @@ p_fc <- autoplot(train_zoom, series = "Training Data") +
   ggtitle(paste(best_label, "Forecast vs Actual (Zoomed: Last 3 Years)"))
 
 print(p_fc)
-ggsave(fig("ets", "ets_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
+ggsave("output/plots/group_summary/fc_ets.png", p_fc, width = 8, height = 5, dpi = 150)
 
 cat("\n--- Holdout accuracy (12-month full seasonal cycle) ---\n")
 print(accuracy(fc_ets, test))
@@ -307,7 +308,7 @@ cat("ETS test MASE:", round(accuracy(fc_ets, test)["Test set", "MASE"], 3),
 
 cat("\n--- Residual diagnostics ---\n")
 checkresiduals(fit_ets)
-dev.copy(png, filename = fig("ets", "ets_residuals.png"), width = 900, height = 700, res = 130)
+dev.copy(png, filename = "output/plots/group_summary/resid_ets.png", width = 900, height = 700, res = 130)
 dev.off()
 
 print(Box.test(residuals(fit_ets), lag = LAG_MAX, type = "Ljung-Box"))

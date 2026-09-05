@@ -39,8 +39,9 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 
-dir.create("output/plots/models", recursive = TRUE, showWarnings = FALSE)
-dir.create("output/tables",       recursive = TRUE, showWarnings = FALSE)
+dir.create("output/plots/models",        recursive = TRUE, showWarnings = FALSE)
+dir.create("output/plots/group_summary", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/tables",              recursive = TRUE, showWarnings = FALSE)
 
 fig <- function(name) file.path("output/plots/models", name)
 tbl <- function(name) file.path("output/tables", name)
@@ -273,14 +274,16 @@ cat("\nLjung-Box: p(lag12) =", round(lb12$p.value, 4), " p(lag16) =", round(lb16
 cat("ACF-out-of-bounds: lag12 =", acf_out_of_bounds(resid_sarima, 12),
     "/12 | lag16 =", acf_out_of_bounds(resid_sarima, LAG_MAX), "/16\n")
 
-png(fig("sarima_resid.png"), width = 900, height = 700, res = 120)
-checkresiduals(fit_sarima)
+checkresiduals(fit_sarima)   # shown on screen (Posit Cloud Plots pane)
+dev.copy(png, filename = "output/plots/group_summary/resid_sarima.png",
+          width = 900, height = 700, res = 120)
 dev.off()
 
 p_fc <- autoplot(fc_sarima) +
   autolayer(test, series = "Actual", color = "red") +
   ggtitle(paste(label, "- Forecast vs Actual")) + scale_y_millions()
-ggsave(fig("sarima_forecast.png"), p_fc, width = 8, height = 5, dpi = 150)
+print(p_fc)
+ggsave("output/plots/group_summary/fc_sarima.png", p_fc, width = 8, height = 5, dpi = 150)
 
 # ---- overfitting check: single holdout ------------------------------------
 mase_train <- acc_sarima["Training set", "MASE"]
