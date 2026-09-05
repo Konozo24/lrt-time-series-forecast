@@ -136,17 +136,26 @@ print(p_mco)
 
 y <- ampang_resolved   # series used for everything from here on
 
+# train / test split - last 12 months (one full seasonal cycle).
+h     <- 12
+train <- head(y, length(y) - h)
+test  <- tail(y, h)
+
+# LAG_MAX for residual diagnostics: Hyndman's min(2m, T/5) rule. With
+# T = 79 training months, 2m = 24 but T/5 = 15.8 binds first, so 16.
+LAG_MAX <- 16
+
 
 # EDA
 p_stl <- autoplot(stl(y, s.window = "periodic", robust = TRUE)) +
   ggtitle("STL decomposition")
 print(p_stl)
 
-cat("\n== ADF (want p < 0.05 for stationary) ==\n")
-print(adf.test(y))
+cat("\n== ADF on TRAIN (want p < 0.05 for stationary) ==\n")
+print(adf.test(train))
 
-cat("\n== KPSS (want p > 0.05 for stationary) ==\n")
-print(kpss.test(y))
+cat("\n== KPSS on TRAIN (want p > 0.05 for stationary) ==\n")
+print(kpss.test(train))
 
 cat("\n== Ljung-Box on RAW series (want p < 0.05 -> not white noise) ==\n")
 print(Box.test(y, lag = 12, type = "Ljung-Box"))
@@ -161,16 +170,6 @@ if (requireNamespace("Kendall", quietly = TRUE)) {
 
 cat("\n== Min value (near-zero check for MAPE stability) ==\n")
 print(min(y, na.rm = TRUE))
-
-
-# train / test split - last 12 months (one full seasonal cycle)
-h     <- 12
-train <- head(y, length(y) - h)
-test  <- tail(y, h)
-
-# LAG_MAX for residual diagnostics: Hyndman's min(2m, T/5) rule. With
-# T = 79 training months, 2m = 24 but T/5 = 15.8 binds first, so 16.
-LAG_MAX <- 16
 
 
 # find the best AIC configuration {box-cox: on/off, damped: on/off}

@@ -89,17 +89,23 @@ ggsave(fig("ets", "mco_resolved.png"), p_mco, width = 8, height = 5, dpi = 150)
 
 y <- ampang_resolved   # series used for everything from here on
 
+# train / test split - last 12 months (one full seasonal cycle).
+h     <- 12
+H     <- h   # alias - the ETS candidate loop below uses H
+train <- head(y, length(y) - h)
+test  <- tail(y, h)
+
 # ---------------------------------------------------------------------
 p_stl <- autoplot(stl(y, s.window = "periodic", robust = TRUE)) +
   ggtitle("STL decomposition")
 print(p_stl)
 ggsave(fig("ets", "stl_decomposition.png"), p_stl, width = 8, height = 5, dpi = 150)
 
-cat("\n== ADF (want p < 0.05 for stationary) ==\n")
-print(adf.test(y))
+cat("\n== ADF on TRAIN (want p < 0.05 for stationary) ==\n")
+print(adf.test(train))
 
-cat("\n== KPSS (want p > 0.05 for stationary) ==\n")
-print(kpss.test(y))
+cat("\n== KPSS on TRAIN (want p > 0.05 for stationary) ==\n")
+print(kpss.test(train))
 
 cat("\n== Ljung-Box on RAW series (want p < 0.05 -> not white noise) ==\n")
 print(Box.test(y, lag = 12, type = "Ljung-Box"))
@@ -114,12 +120,6 @@ if (requireNamespace("Kendall", quietly = TRUE)) {
 
 cat("\n== Min value (near-zero check for MAPE stability) ==\n")
 print(min(y, na.rm = TRUE))
-
-# ---------------------------------------------------------------------
-h     <- 12
-H     <- h   # alias - the ETS candidate loop below uses H
-train <- head(y, length(y) - h)
-test  <- tail(y, h)
 
 LAG_MAX <- 16
 
