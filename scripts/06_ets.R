@@ -83,7 +83,7 @@ p_mco <- autoplot(cbind(Original = ampang_ts, Resolved = ampang_resolved)) +
   ggtitle("LRT Ampang: Original vs. MCO-Resolved Series") +
   ylab("Monthly ridership") + scale_y_millions()
 print(p_mco)
-ggsave(fig("eda", "mco_resolution.png"), p_mco, width = 8, height = 5, dpi = 150)
+ggsave(fig("eda", "mco_resolution.png"), p_mco, width = 9, height = 5, dpi = 150)
 
 y <- ampang_resolved   # series used for everything from here on
 
@@ -97,7 +97,7 @@ test  <- tail(y, h)
 p_stl <- autoplot(stl(y, s.window = "periodic", robust = TRUE)) +
   ggtitle("STL decomposition")
 print(p_stl)
-ggsave(fig("eda", "stl_decomposition.png"), p_stl, width = 8, height = 5, dpi = 150)
+ggsave(fig("eda", "stl_decomposition.png"), p_stl, width = 9, height = 6, dpi = 150)
 
 cat("\n== ADF on TRAIN (want p < 0.05 for stationary) ==\n")
 print(adf.test(train))

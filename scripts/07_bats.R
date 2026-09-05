@@ -282,6 +282,8 @@ dir.create("output/plots/eda", recursive = TRUE, showWarnings = FALSE)
 dir.create("output/plots/group_summary", recursive = TRUE, showWarnings = FALSE)
 dir.create("output/tables", recursive = TRUE, showWarnings = FALSE)
 write.csv(results, "output/tables/bats_result.csv", row.names = FALSE)
+write.csv(grid_results, "output/tables/bats_grid.csv", row.names = FALSE)
+write.csv(cv_bats, "output/tables/bats_rolling_cv.csv", row.names = FALSE)
 
 ggsave("output/plots/eda/stl_decomposition.png", p_stl,
        width = 9, height = 6, dpi = 150)
@@ -301,5 +303,5 @@ dev.copy(png, filename = "output/plots/group_summary/resid_bats.png",
           width = 900, height = 700, res = 130)
 dev.off()
 
-cat("\nDone. Wrote output/tables/bats_result.csv, 2 plots to",
-    "output/plots/eda/, and 2 plots to output/plots/group_summary/\n")
+cat("\nDone. Wrote 3 tables to output/tables/, 2 plots to output/plots/eda/, and 2 plots to",
+    "output/plots/group_summary/\n")

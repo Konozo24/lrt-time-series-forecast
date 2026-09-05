@@ -167,9 +167,10 @@ seasonal_strength <- max(0, 1 - var(decomp$time.series[, "remainder"]) /
                             var(decomp$time.series[, "seasonal"] + decomp$time.series[, "remainder"]))
 cat("\nSTL seasonal strength:", round(seasonal_strength, 3), "\n")
 
-png(fig("stl_decomposition.png"), width = 800, height = 600, res = 130)
-plot(decomp, main = "STL Decomposition")
-dev.off()
+p_stl <- autoplot(decomp) +
+  ggtitle("STL decomposition")
+print(p_stl)
+ggsave(fig("stl_decomposition.png"), p_stl, width = 9, height = 6, dpi = 150)
 
 # ---- MANUAL order identification (before the grid search) ---------------
 # Step 1: read the RAW series' ACF/PACF. This is what a human analyst
