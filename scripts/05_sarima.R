@@ -39,11 +39,11 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 
-dir.create("output/plots/models",        recursive = TRUE, showWarnings = FALSE)
+dir.create("output/plots/eda",           recursive = TRUE, showWarnings = FALSE)
 dir.create("output/plots/group_summary", recursive = TRUE, showWarnings = FALSE)
 dir.create("output/tables",              recursive = TRUE, showWarnings = FALSE)
 
-fig <- function(name) file.path("output/plots/models", name)
+fig <- function(name) file.path("output/plots/eda", name)
 tbl <- function(name) file.path("output/tables", name)
 
 scale_y_millions <- function() {
