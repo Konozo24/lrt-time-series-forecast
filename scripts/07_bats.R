@@ -5,14 +5,7 @@
 # (Sustainable Cities and Communities), Target 11.2. Model family: BATS
 # (Box-Cox, ARMA errors, Trend, Seasonal - conventional/non-trigonometric
 # seasonal representation, De Livera, Hyndman & Snyder, 2011).
-#
-# Self-contained: reads the raw dataset itself (via arrow::read_parquet
-# straight off data.gov.my), resolves the COVID-19 MCO disruption itself,
-# runs its own EDA and diagnostics, fits and validates its own model,
-# writes its own outputs. No source(), no readRDS of a file another
-# script produced, no dependency on any other script in this repo.
-# Setup/data/MCO-resolution logic is duplicated from the shared pipeline
-# on purpose so this one file can be submitted and run standalone.
+
 #
 # Why BATS rather than TBATS here: TBATS replaces the seasonal states
 # with trigonometric (Fourier) terms, a representation designed for
@@ -151,13 +144,13 @@ p_stl <- autoplot(stl(y, s.window = "periodic", robust = TRUE)) +
   ggtitle("STL decomposition")
 print(p_stl)
 
-cat("\n== ADF on TRAIN (want p < 0.05 for stationary) ==\n")
+cat("\n== ADF on TRAIN (p < 0.05 for stationary) ==\n")
 print(adf.test(train))
 
-cat("\n== KPSS on TRAIN (want p > 0.05 for stationary) ==\n")
+cat("\n== KPSS on TRAIN (p > 0.05 for stationary) ==\n")
 print(kpss.test(train))
 
-cat("\n== Ljung-Box on RAW series (want p < 0.05 -> not white noise) ==\n")
+cat("\n== Ljung-Box on raw series (p < 0.05 -> not white noise) ==\n")
 print(Box.test(y, lag = 12, type = "Ljung-Box"))
 print(Box.test(y, lag = 24, type = "Ljung-Box"))
 
@@ -206,8 +199,7 @@ fc_bats <- forecast(fit_bats, h = h)
 acc_bats <- accuracy(fc_bats, test)
 print(acc_bats)
 
-# SNAIVE benchmark: any model that cannot beat SNAIVE is not earning the
-# complexity it adds
+# SNAIVE benchmark
 snaive_fit <- snaive(train, h = h)
 acc_snaive <- accuracy(snaive_fit, test)
 cat("\n== SNAIVE benchmark (test-set accuracy) ==\n")
@@ -220,7 +212,7 @@ cat("BATS test MASE:", round(acc_bats["Test set", "MASE"], 3),
 # residual diagnostics
 resid_bats <- residuals(fit_bats)
 
-cat("\n== Ljung-Box on BATS residuals (want p > 0.05) ==\n")
+cat("\n== Ljung-Box on BATS residuals (p > 0.05) ==\n")
 lb12 <- Box.test(resid_bats, lag = 12,      type = "Ljung-Box")
 lb16 <- Box.test(resid_bats, lag = LAG_MAX, type = "Ljung-Box")
 print(lb12)
@@ -306,7 +298,7 @@ p_fc <- autoplot(fc_bats) +
 print(p_fc)
 ggsave("output/plots/group_summary/fc_bats.png", p_fc, width = 8, height = 5, dpi = 150)
 
-checkresiduals(fit_bats)   # shown on screen (Posit Cloud Plots pane)
+checkresiduals(fit_bats)   # to show on screen (Posit Cloud Plots pane)
 dev.copy(png, filename = "output/plots/group_summary/resid_bats.png",
           width = 900, height = 700, res = 130)
 dev.off()
