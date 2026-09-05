@@ -194,17 +194,17 @@ ggsave(fig("comparison", "model_comparison_bar.png"), p_bar, width = 8, height =
 # (preview) + arrangeGrob() (save) pattern as 03_eda.R's 2x2 EDA figure.
 zoom_start <- c(2022, 1)   # matches the combined overlay plot above
 
-panel <- function(nm) {
+panel <- function(nm, label = nm) {
   autoplot(window(y, start = zoom_start)) +
     autolayer(fc_all[[nm]]$mean, series = "Forecast", size = 0.8) +
     autolayer(test, series = "Actual", size = 0.6) +
     scale_colour_manual(values = c(Forecast = "steelblue", Actual = "red")) +
-    ggtitle(nm) +
+    ggtitle(label) +
     ylab("Monthly ridership") + scale_y_millions() +
     theme(legend.position = "none", plot.title = element_text(size = 11))
 }
 
-p_arima_panel  <- panel("ARIMA")
+p_arima_panel  <- panel("ARIMA", label = "STL-ARIMA") 
 p_sarima_panel <- panel("SARIMA")
 p_ets_panel    <- panel("ETS")
 p_bats_panel   <- panel("BATS")
