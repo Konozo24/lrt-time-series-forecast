@@ -216,6 +216,16 @@ fc_bats <- forecast(fit_bats, h = h)
 acc_bats <- accuracy(fc_bats, test)
 print(acc_bats)
 
+# SNAIVE benchmark: any model that cannot beat SNAIVE is not earning the
+# complexity it adds
+snaive_fit <- snaive(train, h = h)
+acc_snaive <- accuracy(snaive_fit, test)
+cat("\n== SNAIVE benchmark (test-set accuracy) ==\n")
+print(acc_snaive)
+cat("BATS test MASE:", round(acc_bats["Test set", "MASE"], 3),
+    "| SNAIVE test MASE:", round(acc_snaive["Test set", "MASE"], 3),
+    "| BATS beats SNAIVE:", acc_bats["Test set", "MASE"] < acc_snaive["Test set", "MASE"], "\n")
+
 
 # residual diagnostics
 resid_bats <- residuals(fit_bats)

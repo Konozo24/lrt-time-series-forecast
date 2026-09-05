@@ -217,6 +217,16 @@ fc_arima <- forecast(fit_arima, h = h)
 acc_arima <- accuracy(fc_arima, test)
 print(acc_arima)
 
+# SNAIVE benchmark: any model that cannot beat SNAIVE is not earning the
+# complexity it adds (same rationale as 08_group_comparison.R).
+snaive_fit <- snaive(train, h = h)
+acc_snaive <- accuracy(snaive_fit, test)
+cat("\n== SNAIVE benchmark (test-set accuracy) ==\n")
+print(acc_snaive)
+cat("ARIMA test MASE:", round(acc_arima["Test set", "MASE"], 3),
+    "| SNAIVE test MASE:", round(acc_snaive["Test set", "MASE"], 3),
+    "| ARIMA beats SNAIVE:", acc_arima["Test set", "MASE"] < acc_snaive["Test set", "MASE"], "\n")
+
 
 # residual diagnostics
 resid_arima <- residuals(fit_arima)
