@@ -296,7 +296,7 @@ p_fc <- autoplot(fc_bats) +
 print(p_fc)
 ggsave("output/plots/group_summary/fc_bats.png", p_fc, width = 8, height = 5, dpi = 150)
 
-checkresiduals(fit_bats)   # to show on screen (Posit Cloud Plots pane)
+checkresiduals(fit_bats)
 dev.copy(png, filename = "output/plots/group_summary/resid_bats.png",
           width = 900, height = 700, res = 130)
 dev.off()
