@@ -197,7 +197,8 @@ zoom_start <- c(2022, 1)   # matches the combined overlay plot above
 panel <- function(nm) {
   autoplot(window(y, start = zoom_start)) +
     autolayer(fc_all[[nm]]$mean, series = "Forecast", size = 0.8) +
-    autolayer(test, series = "Actual", color = "red", size = 0.8) +
+    autolayer(test, series = "Actual", size = 0.8) +
+    scale_colour_manual(values = c(Forecast = "steelblue", Actual = "red")) +
     ggtitle(nm) +
     ylab("Monthly ridership") + scale_y_millions() +
     theme(legend.position = "none", plot.title = element_text(size = 11))
