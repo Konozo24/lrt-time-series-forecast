@@ -1,0 +1,2 @@
+"member","MASE_train","RMSE_train","MASE_cv","RMSE_cv","sd_MAPE_cv","n_folds","rmse_ratio_cv","gap_pct_cv","lb_pvalue_12","lb_pvalue_16","within_1_3x_cv","within_10pct_cv"
+"arima",0.185339564533055,210592.222258195,0.364873861349389,368190.758005141,3.22151062515903,5,1.74835876680062,0.492044829279833,0.228505147743821,0.382042561295508,FALSE,FALSE
