@@ -89,48 +89,38 @@ start_year  <- year(min(monthly$month))
 start_month <- month(min(monthly$month))
 ampang_ts   <- ts(monthly$rail_lrt_ampang, start = c(start_year, start_month), frequency = 12)
 
-# ---------------------------------------------------------------------
-# MCO resolution: resolve the COVID-19 disruption WITHOUT removing any
-# months from the series (known-intervention imputation, not automatic
-# outlier detection - the latter was tried first and produced false
-# positives on genuinely normal months adjacent to the shock, because a
-# single sharp discontinuity distorts STL's local trend estimate right
-# at its edges).
-#
-# 1. Explicitly define the disrupted window from Malaysia's actual MCO
-#    timeline (domain knowledge, not statistical detection): March 2020
-#    - December 2021 (MCO 1.0 through the National Recovery Plan /
-#    endemic transition), 22 months.
-# 2. Bridge the TREND across the window with linear interpolation
-#    between the last stable pre-MCO value and first stable post-
-#    recovery value, both seasonally adjusted first (raw anchors would
-#    double-count those months' own seasonality - February is this
-#    series' deepest seasonal trough, so anchoring on raw Feb 2020 would
-#    drag the whole bridge down for no real reason).
-# 3. Add back a SEASONAL component estimated by STL from the
-#    undisrupted months only.
-# 4. Replace only the 22 disrupted months with (bridged trend +
-#    seasonal estimate). All months remain in the series - none
-#    dropped - but the collapse-and-recovery no longer distorts
-#    trend/seasonal estimation for the model fitted on this series.
+# mco resolution: resolve the COVID-19 disruption without removing any
+# months from the series (known-intervention imputation)
+
+# 1. find the disrupted window - Malaysia's actual MCO timeline
 mco_start <- as.Date("2020-03-01")
 mco_end   <- as.Date("2021-12-01")
 mco_mask  <- monthly$month >= mco_start & monthly$month <= mco_end
 cat("MCO window:", sum(mco_mask), "months (", format(mco_start), "to", format(mco_end), ")\n")
 
+# 2. blank out that window and linearly fill the gap
 temp_filled <- monthly$rail_lrt_ampang
 temp_filled[mco_mask] <- NA
 temp_filled_ts <- ts(zoo::na.approx(temp_filled), start = start(ampang_ts), frequency = 12)
+
+# 3. run STL on that gap-filled series to get a seasonal component
 stl_temp     <- stl(temp_filled_ts, s.window = "periodic", robust = TRUE)
 seasonal_est <- as.numeric(stl_temp$time.series[, "seasonal"])
 
+# 4. take the real values just before and just after the MCO window and
+#    strip out their own seasonal component
 i_pre  <- which(monthly$month == mco_start - months(1))
 i_post <- which(monthly$month == mco_end + months(1))
 last_pre   <- monthly$rail_lrt_ampang[i_pre]  - seasonal_est[i_pre]     # seasonally adjusted
 first_post <- monthly$rail_lrt_ampang[i_post] - seasonal_est[i_post]
+
+# 5. draw a straight line (linear interpolation) between those two
+#    deseasonalized trend points across the gap months
 n_gap <- sum(mco_mask)
 bridge_trend <- seq(last_pre, first_post, length.out = n_gap + 2)[2:(n_gap + 1)]
 
+# 6. add seasonality back onto the bridged trend, then replace only
+#    the MCO months with it - every other month stays untouched.
 resolved <- monthly$rail_lrt_ampang
 resolved[mco_mask] <- bridge_trend + seasonal_est[mco_mask]
 
