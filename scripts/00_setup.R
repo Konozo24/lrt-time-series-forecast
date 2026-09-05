@@ -221,13 +221,12 @@ stlarima_fit <- function(tr, xreg_tr, p_range = 0:3, q_range = 0:3) {
   res  <- data.frame()
   for (i in seq_len(nrow(grid))) {
     p <- grid$p[i]; q <- grid$q[i]
-    f <- tryCatch(Arima(seasadj_tr, order = c(p, d, q), xreg = xreg_tr,
-                        include.drift = (d > 0)), error = function(e) NULL)
+    f <- tryCatch(Arima(seasadj_tr, order = c(p, d, q), xreg = xreg_tr),
+                  error = function(e) NULL)
     if (!is.null(f)) res <- rbind(res, data.frame(p = p, q = q, AICc = f$aicc))
   }
   res <- res[order(res$AICc), ]
-  fit <- Arima(seasadj_tr, order = c(res$p[1], d, res$q[1]), xreg = xreg_tr,
-               include.drift = (d > 0))
+  fit <- Arima(seasadj_tr, order = c(res$p[1], d, res$q[1]), xreg = xreg_tr)
   list(fit = fit, seasonal_train = seasonal_tr, order = c(res$p[1], d, res$q[1]))
 }
 

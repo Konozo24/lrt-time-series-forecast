@@ -246,7 +246,7 @@ grid_results <- data.frame()
 for (i in seq_len(nrow(grid))) {
   p <- grid$p[i]; q <- grid$q[i]
   fit <- tryCatch(
-    Arima(seasadj_train, order = c(p, d, q), xreg = xreg_train, include.drift = (d > 0)),
+    Arima(seasadj_train, order = c(p, d, q), xreg = xreg_train),
     error = function(e) NULL
   )
   if (!is.null(fit)) {
@@ -263,7 +263,7 @@ label <- paste0("STLARIMA(", best$p, ",", best$d, ",", best$q, ")+Interventions"
 cat("\nSelected:", label, " AICc =", round(best$AICc, 2), "\n")
 
 fit_arima <- Arima(seasadj_train, order = c(best$p, best$d, best$q),
-                    xreg = xreg_train, include.drift = (best$d > 0))
+                    xreg = xreg_train)
 print(summary(fit_arima))
 
 fc_arima_seasadj <- forecast(fit_arima, h = h, xreg = xreg_test)
@@ -338,12 +338,12 @@ cv_arima <- do.call(rbind, lapply(origins, function(ts_size) {
   r_fold <- data.frame()
   for (i in seq_len(nrow(g_fold))) {
     f <- tryCatch(Arima(seasadj_fold, order = c(g_fold$p[i], d_fold, g_fold$q[i]),
-                         xreg = xreg_tr, include.drift = (d_fold > 0)), error = function(e) NULL)
+                         xreg = xreg_tr), error = function(e) NULL)
     if (!is.null(f)) r_fold <- rbind(r_fold, data.frame(p = g_fold$p[i], q = g_fold$q[i], AICc = f$aicc))
   }
   r_fold <- r_fold[order(r_fold$AICc), ]
   m <- Arima(seasadj_fold, order = c(r_fold$p[1], d_fold, r_fold$q[1]),
-             xreg = xreg_tr, include.drift = (d_fold > 0))
+             xreg = xreg_tr)
 
   fcv <- forecast(m, h = h, xreg = xreg_te)
   a   <- stlarima_accuracy_orig(m, fcv, seasonal_fold, seasonal_fc_fold, tr, te)$acc
