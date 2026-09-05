@@ -1,0 +1,5 @@
+"term","estimate","se","significant"
+"ma1",-0.4119,0.1096,TRUE
+"ma2",0.2947,0.1324,TRUE
+"sar1",0.8821,0.1834,TRUE
+"sma1",-0.5824,0.3821,FALSE
